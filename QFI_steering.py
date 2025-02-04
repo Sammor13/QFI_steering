@@ -39,7 +39,7 @@ def main():
     Nst = 1                                             ##every Nst´th step is saved
     
     ##couplings
-    K = 6                                               ##nr of couplings: 3, 4, 6, 8, 9, 10, 11, 12, 14
+    K = 6                                               ##nr of couplings: 3, 4, 6, 7, 8, 9, 10, 11, 12, 14
     params = [N, Nst, DeltaT, J[:Nqb], K]
     
     ##Observable for O_i=n*(X,Y,Z)
@@ -320,6 +320,10 @@ def trajec(Nqb, psi0, O, param):
         #slist = [1,1,1,1,1,1]
         #aList = [1,2,3,1,2,3]
         #bList = [1,1,1,2,2,2]
+    elif K == 7:        ##beta=x,z; alpha=0,x,y,z; s=+
+        slist = [1,1,1,1,1,1,1]
+        aList = [0,1,2,3,1,2,3]
+        bList = [1,1,1,1,3,3,3]
     elif K == 8:        ##beta=x,y; alpha=0,x,y,z; s=+
         slist = [1,1,1,1,1,1,1,1]
         aList = [0,1,2,3,0,1,2,3]
@@ -569,6 +573,10 @@ def expQFIchgSparse(S, SO, J, Gamma, deltaT, nA, nB, Nqb, K):
         #slist = [1,1,1,1,1,1]
         #aList = [1,2,3,1,2,3]
         #bList = [1,1,1,2,2,2]
+    elif K == 7:        ##beta=x,z; alpha=0,x,y,z; s=+
+        slist = [1,1,1,1,1,1,1]
+        aList = [0,1,2,3,1,2,3]
+        bList = [1,1,1,1,3,3,3]
     elif K == 8:        ##beta=x,y; alpha=0,x,y,z; s=+
         slist = [1,1,1,1,1,1,1,1]
         aList = [0,1,2,3,0,1,2,3]
@@ -582,14 +590,14 @@ def expQFIchgSparse(S, SO, J, Gamma, deltaT, nA, nB, Nqb, K):
         #slist = [1,1,1,1,1,1,1,1,1]
         #aList = [1,2,3,1,2,3,1,2,3]
         #bList = [1,1,1,2,2,2,3,3,3]
-    elif K == 11:        ##beta=x,y,z; alpha=0,x,y,z; s=+
-        slist = [1,1,1,1,1,1,1,1,1,1,1]
-        aList = [1,2,3,0,1,2,3,0,1,2,3]
-        bList = [3,3,3,1,1,1,1,2,2,2,2]
     elif K == 10:        ##beta=x,z; alpha=0,x,y,z; s=+/-
         slist = [1,1,1,-1,-1,-1,1,1,1,1]
         aList = [1,2,3,1,2,3,0,1,2,3]
         bList = [3,3,3,3,3,3,1,1,1,1]
+    elif K == 11:        ##beta=x,y,z; alpha=0,x,y,z; s=+
+        slist = [1,1,1,1,1,1,1,1,1,1,1]
+        aList = [1,2,3,0,1,2,3,0,1,2,3]
+        bList = [3,3,3,1,1,1,1,2,2,2,2]
     elif K == 12:        ##beta=x,y,z; alpha=x,y,z; s=+/-
         slist = [1,1,1,-1,-1,-1,1,1,1,1,1,1]
         aList = [1,2,3,1,2,3,1,2,3,1,2,3]
