@@ -275,10 +275,10 @@ def trajec(Nqb, psi0, O, param):
     N, Nst, DeltaT, J, K = param            ##unpack parameters
     Gamma = [j**2*DeltaT for j in J]        ##jump rate, default: J*J*DeltaT
     
-    ##2 qubit correlator Q indices
-    indList2 = [0]
-    indList2.extend([a*b for b in [4**i for i in range(Nqb)] for a in [1,2,3]])
-    indList2.extend([alpha*4**j+beta*4**k for alpha in range(1,4) for beta in range(1,4) for j in range(Nqb-1) for k in range(j+1,Nqb)])
+    ##single qubit and 2 qubit correlator Q indices
+    indList = [0]
+    indList.extend([a*b for b in [4**i for i in range(Nqb)] for a in [1,2,3]])
+    indList.extend([alpha*4**j+beta*4**k for alpha in range(1,4) for beta in range(1,4) for j in range(Nqb-1) for k in range(j+1,Nqb)])
       
     #random number generator
     rng = np.random.default_rng()
@@ -302,57 +302,8 @@ def trajec(Nqb, psi0, O, param):
         S_list = np.zeros(int(N/Nst)+1)
         S_list[0] = qt.entropy_vn(psi0.ptrace((0)))
         
-    ##coupling list
-    if K == 3:          ##beta=x; alpha=x,y,z; s=+
-        slist = [1,1,1]
-        aList = [1,2,3]
-        bList = [1,1,1]
-    elif K == 4:          ##beta=x; alpha=0,x,y,z; s=+
-        slist = [1,1,1,1]
-        aList = [0,1,2,3]
-        bList = [1,1,1,1]
-    elif K == 6:          ##beta=x,z; alpha=x,y,z; s=+
-        slist = [1,1,1,1,1,1]
-        aList = [1,2,3,1,2,3]
-        bList = [1,1,1,3,3,3]
-        
-        ##beta=x,y; alpha=x,y,z; s=+
-        #slist = [1,1,1,1,1,1]
-        #aList = [1,2,3,1,2,3]
-        #bList = [1,1,1,2,2,2]
-    elif K == 7:        ##beta=x,z; alpha=0,x,y,z; s=+
-        slist = [1,1,1,1,1,1,1]
-        aList = [0,1,2,3,1,2,3]
-        bList = [1,1,1,1,3,3,3]
-    elif K == 8:        ##beta=x,y; alpha=0,x,y,z; s=+
-        slist = [1,1,1,1,1,1,1,1]
-        aList = [0,1,2,3,0,1,2,3]
-        bList = [1,1,1,1,2,2,2,2]
-    elif K == 9:        ##beta=x,z; alpha=x,y,z; s=+/-
-        slist = [1,1,1,-1,-1,-1,1,1,1]
-        aList = [1,2,3,1,2,3,1,2,3]
-        bList = [3,3,3,3,3,3,1,1,1]
-        
-        ##beta=x,y,z; alpha=x,y,z; s=+
-        #slist = [1,1,1,1,1,1,1,1,1]
-        #aList = [1,2,3,1,2,3,1,2,3]
-        #bList = [1,1,1,2,2,2,3,3,3]
-    elif K == 10:        ##beta=x,z; alpha=0,x,y,z; s=+/-
-        slist = [1,1,1,-1,-1,-1,1,1,1,1]
-        aList = [1,2,3,1,2,3,0,1,2,3]
-        bList = [3,3,3,3,3,3,1,1,1,1]
-    elif K == 11:        ##beta=x,y,z; alpha=0,x,y,z; s=+
-        slist = [1,1,1,1,1,1,1,1,1,1,1]
-        aList = [1,2,3,0,1,2,3,0,1,2,3]
-        bList = [3,3,3,1,1,1,1,2,2,2,2]
-    elif K == 12:        ##beta=x,y,z; alpha=x,y,z; s=+/-
-        slist = [1,1,1,-1,-1,-1,1,1,1,1,1,1]
-        aList = [1,2,3,1,2,3,1,2,3,1,2,3]
-        bList = [3,3,3,3,3,3,1,1,1,2,2,2]
-    elif K == 14:        ##beta=x,y,z; alpha=0,x,y,z; s=+/-
-        slist = [1,1,1,-1,-1,-1,1,1,1,1,1,1,1,1]
-        aList = [1,2,3,1,2,3,0,1,2,3,0,1,2,3]
-        bList = [3,3,3,3,3,3,1,1,1,1,2,2,2,2]    
+    ##coupling lists
+    slist, aList, bList = coupl_list(K) 
     
     ##operator list
     pauliPlaqList = np.zeros(int(1+3*Nqb+9/2*Nqb*(Nqb-1)), dtype=object)
@@ -361,7 +312,7 @@ def trajec(Nqb, psi0, O, param):
     SO = np.zeros(int(1+3*Nqb+9/2*Nqb*(Nqb-1)))
     
     #compute initial values
-    for l,k in enumerate(indList2):
+    for l,k in enumerate(indList):
         pauliPlaqList[l] = plaqS([int(k/(4**j)%4) for j in range(Nqb)])
         Spsi[l] = qt.expect(pauliPlaqList[l],psi0)
         SO[l] = qt.expect(pauliPlaqList[l],O)
@@ -459,7 +410,7 @@ def trajec(Nqb, psi0, O, param):
                 xi_eta_List[i-1] = (xi, eta)
                 
         ##Update values
-        for l, k in enumerate(indList2):
+        for l, k in enumerate(indList):
             Spsi[l] = qt.expect(pauliPlaqList[l],psi)
             #Spsi[l] = qt.expect(plaqS([int(k/(4**j)%4) for j in range(Nqb)]),psi)     #for N>15 to save memory
         
@@ -481,6 +432,61 @@ def trajec(Nqb, psi0, O, param):
     else:
         return k_List, xi_eta_List, qfi, phList
 
+##coupling list
+def coupl_list(K):
+    if K == 3:          ##beta=x; alpha=x,y,z; s=+
+        slist = [1,1,1]
+        aList = [1,2,3]
+        bList = [1,1,1]
+    elif K == 4:        ##beta=x; alpha=0,x,y,z; s=+
+        slist = [1,1,1,1]
+        aList = [0,1,2,3]
+        bList = [1,1,1,1]
+    elif K == 6:        ##beta=x,z; alpha=x,y,z; s=+
+        slist = [1,1,1,1,1,1]
+        aList = [1,2,3,1,2,3]
+        bList = [1,1,1,3,3,3]
+        
+        ##beta=x,y; alpha=x,y,z; s=+
+        #slist = [1,1,1,1,1,1]
+        #aList = [1,2,3,1,2,3]
+        #bList = [1,1,1,2,2,2]
+    elif K == 7:        ##beta=x,z; alpha=0,x,y,z; s=+
+        slist = [1,1,1,1,1,1,1]
+        aList = [0,1,2,3,1,2,3]
+        bList = [1,1,1,1,3,3,3]
+    elif K == 8:        ##beta=x,y; alpha=0,x,y,z; s=+
+        slist = [1,1,1,1,1,1,1,1]
+        aList = [0,1,2,3,0,1,2,3]
+        bList = [1,1,1,1,2,2,2,2]
+    elif K == 9:        ##beta=x,z; alpha=x,y,z; s=+/-
+        slist = [1,1,1,-1,-1,-1,1,1,1]
+        aList = [1,2,3,1,2,3,1,2,3]
+        bList = [3,3,3,3,3,3,1,1,1]
+        
+        ##beta=x,y,z; alpha=x,y,z; s=+
+        #slist = [1,1,1,1,1,1,1,1,1]
+        #aList = [1,2,3,1,2,3,1,2,3]
+        #bList = [1,1,1,2,2,2,3,3,3]
+    elif K == 10:        ##beta=x,z; alpha=0,x,y,z; s=+/-
+        slist = [1,1,1,-1,-1,-1,1,1,1,1]
+        aList = [1,2,3,1,2,3,0,1,2,3]
+        bList = [3,3,3,3,3,3,1,1,1,1]
+    elif K == 11:        ##beta=x,y,z; alpha=0,x,y,z; s=+
+        slist = [1,1,1,1,1,1,1,1,1,1,1]
+        aList = [1,2,3,0,1,2,3,0,1,2,3]
+        bList = [3,3,3,1,1,1,1,2,2,2,2]
+    elif K == 12:        ##beta=x,y,z; alpha=x,y,z; s=+/-
+        slist = [1,1,1,-1,-1,-1,1,1,1,1,1,1]
+        aList = [1,2,3,1,2,3,1,2,3,1,2,3]
+        bList = [3,3,3,3,3,3,1,1,1,2,2,2]
+    elif K == 14:        ##beta=x,y,z; alpha=0,x,y,z; s=+/-
+        slist = [1,1,1,-1,-1,-1,1,1,1,1,1,1,1,1]
+        aList = [1,2,3,1,2,3,0,1,2,3,0,1,2,3]
+        bList = [3,3,3,3,3,3,1,1,1,1,2,2,2,2]
+        
+    return slist, aList, bList
+        
 ##Time evolution solver    
 ##Entanglement swapping for beta1=beta2=x/y
 def ent_swap_sol(psi, deltaT, c_op):
@@ -542,8 +548,9 @@ def schroesol(psi, deltaT, H):
     
 ###plaquette operators
 def plaqS(ind):
-    pauliLs = [s[i] for i in ind]
-    return qt.tensor(pauliLs)
+    #pauliLs = [s[i] for i in ind]
+    #return qt.tensor(pauliLs)
+    return qt.tensor([s[i] for i in ind])
     
 def plaqSlist(Nqb):
     return  [plaqS([int(i/(4**j)%4) for j in range(Nqb)]) for i in range(4**Nqb)]
@@ -555,62 +562,13 @@ def expQFIchgSparse(S, SO, J, Gamma, deltaT, nA, nB, Nqb, K):
     GA = Gamma[nA]
     GB = Gamma[nB]
     
-    ##coupling list
-    if K == 3:          ##beta=x; alpha=x,y,z; s=+
-        slist = [1,1,1]
-        aList = [1,2,3]
-        bList = [1,1,1]
-    elif K == 4:        ##beta=x; alpha=0,x,y,z; s=+
-        slist = [1,1,1,1]
-        aList = [0,1,2,3]
-        bList = [1,1,1,1]
-    elif K == 6:        ##beta=x,z; alpha=x,y,z; s=+
-        slist = [1,1,1,1,1,1]
-        aList = [1,2,3,1,2,3]
-        bList = [1,1,1,3,3,3]
-        
-        ##beta=x,y; alpha=x,y,z; s=+
-        #slist = [1,1,1,1,1,1]
-        #aList = [1,2,3,1,2,3]
-        #bList = [1,1,1,2,2,2]
-    elif K == 7:        ##beta=x,z; alpha=0,x,y,z; s=+
-        slist = [1,1,1,1,1,1,1]
-        aList = [0,1,2,3,1,2,3]
-        bList = [1,1,1,1,3,3,3]
-    elif K == 8:        ##beta=x,y; alpha=0,x,y,z; s=+
-        slist = [1,1,1,1,1,1,1,1]
-        aList = [0,1,2,3,0,1,2,3]
-        bList = [1,1,1,1,2,2,2,2]
-    elif K == 9:        ##beta=x,z; alpha=x,y,z; s=+/-
-        slist = [1,1,1,-1,-1,-1,1,1,1]
-        aList = [1,2,3,1,2,3,1,2,3]
-        bList = [3,3,3,3,3,3,1,1,1]
-        
-        ##beta=x,y,z; alpha=x,y,z; s=+
-        #slist = [1,1,1,1,1,1,1,1,1]
-        #aList = [1,2,3,1,2,3,1,2,3]
-        #bList = [1,1,1,2,2,2,3,3,3]
-    elif K == 10:        ##beta=x,z; alpha=0,x,y,z; s=+/-
-        slist = [1,1,1,-1,-1,-1,1,1,1,1]
-        aList = [1,2,3,1,2,3,0,1,2,3]
-        bList = [3,3,3,3,3,3,1,1,1,1]
-    elif K == 11:        ##beta=x,y,z; alpha=0,x,y,z; s=+
-        slist = [1,1,1,1,1,1,1,1,1,1,1]
-        aList = [1,2,3,0,1,2,3,0,1,2,3]
-        bList = [3,3,3,1,1,1,1,2,2,2,2]
-    elif K == 12:        ##beta=x,y,z; alpha=x,y,z; s=+/-
-        slist = [1,1,1,-1,-1,-1,1,1,1,1,1,1]
-        aList = [1,2,3,1,2,3,1,2,3,1,2,3]
-        bList = [3,3,3,3,3,3,1,1,1,2,2,2]
-    elif K == 14:        ##beta=x,y,z; alpha=0,x,y,z; s=+/-
-        slist = [1,1,1,-1,-1,-1,1,1,1,1,1,1,1,1]
-        aList = [1,2,3,1,2,3,0,1,2,3,0,1,2,3]
-        bList = [3,3,3,3,3,3,1,1,1,1,2,2,2,2]
+    ##coupling lists
+    slist, aList, bList = coupl_list(K)
         
     ##indexlist
-    indList2 = [0]
-    indList2.extend([a*b for b in [4**i for i in range(Nqb)] for a in [1,2,3]])
-    indList2.extend([alpha*4**j+beta*4**k for alpha in range(1,4) for beta in range(1,4) for j in range(Nqb-1) for k in range(j+1,Nqb)]) 
+    indList = [0]
+    indList.extend([a*b for b in [4**i for i in range(Nqb)] for a in [1,2,3]])
+    indList.extend([alpha*4**j+beta*4**k for alpha in range(1,4) for beta in range(1,4) for j in range(Nqb-1) for k in range(j+1,Nqb)]) 
    
     ##expected qfi change
     dqfi=np.zeros(K**2)
@@ -624,7 +582,7 @@ def expQFIchgSparse(S, SO, J, Gamma, deltaT, nA, nB, Nqb, K):
         bB = bList[int(j/K)]
         
         ##correlator
-        Q = Ssparse(S,aA*4**nA+aB*4**nB, indList2)
+        Q = Ssparse(S,aA*4**nA+aB*4**nB, indList)
         
         ##F tensor
         F = np.zeros(1+3*Nqb)
@@ -632,17 +590,17 @@ def expQFIchgSparse(S, SO, J, Gamma, deltaT, nA, nB, Nqb, K):
         if aA==aB and aA==0:
             F = S[:1+3*Nqb]
         else:
-            for l, k in enumerate(indList2[:1+3*Nqb]):
+            for l, k in enumerate(indList[:1+3*Nqb]):
                 muA = int(k/(4**nA)%4)
                 muB = int(k/(4**nB)%4)
                 if muA == 0 and muB == 0:
-                    F[l] = Ssparse(S,k+aA*4**nA+aB*4**nB, indList2)
+                    F[l] = Ssparse(S,k+aA*4**nA+aB*4**nB, indList)
                 elif muA == 0 and muB == aB:
-                    F[l] = Ssparse(S,k+aA*4**nA-aB*4**nB, indList2)
+                    F[l] = Ssparse(S,k+aA*4**nA-aB*4**nB, indList)
                 elif muA == aA and muB == 0:
-                    F[l] = Ssparse(S,k-aA*4**nA+aB*4**nB, indList2)
+                    F[l] = Ssparse(S,k-aA*4**nA+aB*4**nB, indList)
                 elif muA == aA and muB == aB:
-                    F[l] = Ssparse(S,k-aA*4**nA-aB*4**nB, indList2)
+                    F[l] = Ssparse(S,k-aA*4**nA-aB*4**nB, indList)
                 
                 elif muA != 0 and muA != aA and muB != 0 and muB != aB and aA!=0 and aB!=0:
                     rtm1 = 0
@@ -650,20 +608,20 @@ def expQFIchgSparse(S, SO, J, Gamma, deltaT, nA, nB, Nqb, K):
                         if k1 != aA and k1 != muA:
                             for k2 in range(1,4):
                                 if k2 != aB and k2 != muB:
-                                    rtm1 += LeviCivita(aA,muA,k1)*LeviCivita(aB,muB,k2)*Ssparse(S,k+(k1-muA)*4**nA+(k2-muB)*4**nB, indList2)
+                                    rtm1 += LeviCivita(aA,muA,k1)*LeviCivita(aB,muB,k2)*Ssparse(S,k+(k1-muA)*4**nA+(k2-muB)*4**nB, indList)
                     F[l] = rtm1
                     
                 elif muA != 0 and muA != aA and muB != 0 and muB != aB and aA==0 and aB!=0:
                     rtm1 = 0
                     for k2 in range(1,4):
                         if k2 != aB and k2 != muB:
-                            rtm1 += LeviCivita(aB,muB,k2)*Ssparse(S,k+(k2-muB)*4**nB, indList2)
+                            rtm1 += LeviCivita(aB,muB,k2)*Ssparse(S,k+(k2-muB)*4**nB, indList)
                     F[l] = rtm1
                 elif muA != 0 and muA != aA and muB != 0 and muB != aB and aA!=0 and aB==0:
                     rtm1 = 0
                     for k1 in range(1,4):
                         if k1 != aA and k1 != muA:
-                            rtm1 += LeviCivita(aA,muA,k1)*Ssparse(S,k+(k1-muA)*4**nA, indList2)
+                            rtm1 += LeviCivita(aA,muA,k1)*Ssparse(S,k+(k1-muA)*4**nA, indList)
                     F[l] = rtm1
             
         ##<c_eta^\dagger c_eta>
@@ -676,7 +634,7 @@ def expQFIchgSparse(S, SO, J, Gamma, deltaT, nA, nB, Nqb, K):
         Gplus, Gmin = np.zeros(1+3*Nqb), np.zeros(1+3*Nqb)
         
         ##calculate dR, Gplus/min
-        for l, k in enumerate(indList2):
+        for l, k in enumerate(indList):
             ##<<dR>> terms
             muA = int(k/(4**nA)%4)
             muB = int(k/(4**nB)%4)
@@ -691,7 +649,7 @@ def expQFIchgSparse(S, SO, J, Gamma, deltaT, nA, nB, Nqb, K):
                     rtm4 = 0
                     for k1 in range(1,4):
                         if k1 != muA and k1 != aA:
-                            rtm4 += int(LeviCivita(aA,k1,muA))*Ssparse(S,k+(k1-muA)*4**nA,indList2)
+                            rtm4 += int(LeviCivita(aA,k1,muA))*Ssparse(S,k+(k1-muA)*4**nA,indList)
                     rtm1 += sA*JA*rtm4
             
             ##B terms
@@ -703,7 +661,7 @@ def expQFIchgSparse(S, SO, J, Gamma, deltaT, nA, nB, Nqb, K):
                     rtm4 = 0
                     for k2 in range(1,4):
                         if k2 != muB and k2 != aB:
-                            rtm4 += int(LeviCivita(aB,k2,muB))*Ssparse(S,k+(k2-muB)*4**nB,indList2)
+                            rtm4 += int(LeviCivita(aB,k2,muB))*Ssparse(S,k+(k2-muB)*4**nB,indList)
                     rtm1 += sB*JB*rtm4
                     
             dR[l] = 2*deltaT*rtm1
@@ -727,9 +685,9 @@ def expQFIchgSparse(S, SO, J, Gamma, deltaT, nA, nB, Nqb, K):
     return dqfi
 
 ##sparse implementation
-def Ssparse(S,k,indList2):
-    if k in indList2:
-        return S[np.where(np.array(indList2)==k)[0][0]]
+def Ssparse(S,k,indList):
+    if k in indList:
+        return S[np.where(np.array(indList)==k)[0][0]]
     else:
         return 0
 
