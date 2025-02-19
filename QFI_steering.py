@@ -26,7 +26,7 @@ s=[s0,sx,sy,sz]
 ##main program runs simulations with fixed parameters and plots results
 def main():
     ##Parameters
-    Nqb = 2                                             ##Number of qubits
+    Nqb = 4                                             ##Number of qubits
     DeltaT = 0.2                                        ##time step length
     #J = [1, 0.99, 1.01, 1.005, 0.995, 1.003, 0.997, 1.007]        ##coupling strength
     #J = [1-rng.random()/10 for j in range(Nqb)]
@@ -277,8 +277,8 @@ def trajec(Nqb, psi0, O, param):
     
     ##single qubit and 2 qubit correlator Q indices
     indList = [0]
-    indList.extend([a*b for b in [4**i for i in range(Nqb)] for a in [1,2,3]])
-    indList.extend([alpha*4**j+beta*4**k for alpha in range(1,4) for beta in range(1,4) for j in range(Nqb-1) for k in range(j+1,Nqb)])
+    indList.extend([a*4**i for i in range(Nqb) for a in range(1,4)])
+    indList.extend([a*4**j+b*4**i for a in range(1,4) for b in range(1,4) for j in range(Nqb-1) for i in range(j+1,Nqb)])
       
     #random number generator
     rng = np.random.default_rng()
@@ -355,7 +355,7 @@ def trajec(Nqb, psi0, O, param):
             G1, G2 = Gamma[n1], Gamma[n2]
             
             ##decision-making
-            deltaQFI = expQFIchgSparse(Spsi, SO, J, Gamma, DeltaT, n1, n2, Nqb, K)
+            deltaQFI = expQFIchgSparse(Spsi, SO, J, Gamma, DeltaT, n1, n2, Nqb, K, indList)
                 
             klis = rng.choice(np.where(deltaQFI==np.nanmax(deltaQFI))[0])
             k_List[(i-1)*int(Nqb/2)+nPair] = klis
@@ -376,39 +376,19 @@ def trajec(Nqb, psi0, O, param):
            # sig2 = plaqS([int(alpha2*4**(n2-j)%4) for j in range(Nqb)])     #for N>15 to save memory
             
             ##Time step
-            #beta1=beta2=z
-            if beta1==3 and beta2==3:
-                xi_eta_List[i-1] = (0,(-1)**int(2*rng.random()))
-                H = s1*J1*sig1+s2*J2*sig2
-                psi = schroesol(psi, DeltaT, H)
-            
-            #beta1=z, beta2!=z
-            elif beta1==3:
-                c_op, H = np.sqrt(G2)*sig2, s1*J1*sig1
-                psi, xi = unitsol(psi, DeltaT, H, c_op, G2*DeltaT)
-                xi_eta_List[i-1] = (xi,(-1)**int(2*rng.random()))
+            #beta1=z or beta2=z or (beta1=x, beta2=y) or (beta1=y, beta2=x)
+            if beta1==3 or beta2==3 or beta1!=beta2:
+                eta = (-1)**int(2*rng.random())
+                H = (beta1==3)*s1*J1*sig1+(beta2==3)*s2*J2*sig2+(beta1!=3)*(beta2!=3)*eta*np.sqrt(G1*G2)*sig1*sig2
+                c_op = (beta1!=3)*np.sqrt(G1)*sig1+(1-2*(beta1==2))*eta*1j*(beta2!=3)*np.sqrt(G2)*sig2
+                psi, xi = unitsol(psi, DeltaT, H, c_op, ((beta1!=3)*G1+(beta2!=3)*G2)*DeltaT)
+                xi_eta_List[i-1] = (xi, eta)
                 
-            #beta1!=z, beta2=z
-            elif beta2==3:
-                c_op, H = np.sqrt(G1)*sig1, s2*J2*sig2
-                psi, xi = unitsol(psi, DeltaT, H, c_op, G1*DeltaT)
-                xi_eta_List[i-1] = (xi,(-1)**int(2*rng.random()))
-            
             #beta1=beta2=x/y  
             elif beta1==beta2:
                 c_op = [np.sqrt(G1/2)*sig1+np.sqrt(G2/2)*sig2, np.sqrt(G1/2)*sig1-np.sqrt(G2/2)*sig2]
                 psi, xi_eta_List[i-1] = ent_swap_sol(psi, DeltaT, c_op)
-            
-            #(beta1=x, beta2=y) or (beta1=y, beta2=x)
-            else:
-                eta = (-1)**int(2*rng.random())
-                if beta1==1:
-                    c_op, H = np.sqrt(G1)*sig1+eta*1j*np.sqrt(G2)*sig2, eta*np.sqrt(G1*G2)*sig1*sig2
-                elif beta1==2:
-                    c_op, H = np.sqrt(G1)*sig1-eta*1j*np.sqrt(G2)*sig2, eta*np.sqrt(G1*G2)*sig1*sig2
-                psi, xi = unitsol(psi, DeltaT, H, c_op, (G1+G2)*DeltaT)
-                xi_eta_List[i-1] = (xi, eta)
-                
+                  
         ##Update values
         for l, k in enumerate(indList):
             Spsi[l] = qt.expect(pauliPlaqList[l],psi)
@@ -512,18 +492,7 @@ def ent_swap_sol(psi, deltaT, c_op):
         
 ##Unitary dynamics for (beta1,beta2)=(x,y) or (x/y,z) and vice-versa
 def unitsol(psi, deltaT, H, c_op, P):
-    '''return normalized state conditioned on measurement outcome
-    for single, unitary jump operator
-    '''
-    #random number generator
-    rng = np.random.default_rng()
-    if rng.random() >= P:
-        return ((1-1j*deltaT*H-P/2)*psi).unit(), 0
-    else:
-        return (c_op*psi).unit(), 1
-
-def schroesol(psi, deltaT, H):
-    '''Single step Hamiltonian evolution
+    '''State evolution for single, unitary jump operator
     Parameters
     ----------
 
@@ -532,6 +501,9 @@ def schroesol(psi, deltaT, H):
 
     psi: :class:`qutip.Qobj`
         initial state vector (ket)
+    
+    c_op: :class:`qutip.Qobj`
+        unitary jump operator
         
     deltaT: (float)
         time step length
@@ -543,20 +515,22 @@ def schroesol(psi, deltaT, H):
 
         Normalized time-evolved state (ket)
     '''
-    
-    return ((1-1j*deltaT*H)*psi).unit()
+    #random number generator
+    rng = np.random.default_rng()
+    if rng.random() >= P:
+        return ((1-1j*deltaT*H-P/2)*psi).unit(), 0
+    else:
+        return (c_op*psi).unit(), 1
     
 ###plaquette operators
 def plaqS(ind):
-    #pauliLs = [s[i] for i in ind]
-    #return qt.tensor(pauliLs)
     return qt.tensor([s[i] for i in ind])
     
 def plaqSlist(Nqb):
     return  [plaqS([int(i/(4**j)%4) for j in range(Nqb)]) for i in range(4**Nqb)]
 
-##sparse implementation
-def expQFIchgSparse(S, SO, J, Gamma, deltaT, nA, nB, Nqb, K):
+##sparse implementation QFI change
+def expQFIchgSparse(S, SO, J, Gamma, deltaT, nA, nB, Nqb, K, indList):
     JA = J[nA]
     JB = J[nB]
     GA = Gamma[nA]
@@ -564,12 +538,7 @@ def expQFIchgSparse(S, SO, J, Gamma, deltaT, nA, nB, Nqb, K):
     
     ##coupling lists
     slist, aList, bList = coupl_list(K)
-        
-    ##indexlist
-    indList = [0]
-    indList.extend([a*b for b in [4**i for i in range(Nqb)] for a in [1,2,3]])
-    indList.extend([alpha*4**j+beta*4**k for alpha in range(1,4) for beta in range(1,4) for j in range(Nqb-1) for k in range(j+1,Nqb)]) 
-   
+     
     ##expected qfi change
     dqfi=np.zeros(K**2)
     
