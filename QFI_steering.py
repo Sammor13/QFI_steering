@@ -4,7 +4,7 @@
 Created on Wed Jul 28 14:40:09 2021
 
 @author: samue
-TODO: exact expressions
+TODO: exact expressions, vectorize dqfi calculation
 """
   
 import numpy as np
@@ -26,7 +26,7 @@ s=[s0,sx,sy,sz]
 ##main program runs simulations with fixed parameters and plots results
 def main():
     ##Parameters
-    Nqb = 4                                             ##Number of qubits
+    Nqb = 5                                             ##Number of qubits
     DeltaT = 0.2                                        ##time step length
     #J = [1, 0.99, 1.01, 1.005, 0.995, 1.003, 0.997, 1.007]        ##coupling strength
     #J = [1-rng.random()/10 for j in range(Nqb)]
@@ -554,45 +554,8 @@ def expQFIchgSparse(S, SO, J, Gamma, deltaT, nA, nB, Nqb, K, indList):
         Q = Ssparse(S,aA*4**nA+aB*4**nB, indList)
         
         ##F tensor
-        F = np.zeros(1+3*Nqb)
+        F = F_tensor(S, SO, (aA, bA, nA), (aB, bB, nB), Nqb, indList)
         
-        if aA==aB and aA==0:
-            F = S[:1+3*Nqb]
-        else:
-            for l, k in enumerate(indList[:1+3*Nqb]):
-                muA = int(k/(4**nA)%4)
-                muB = int(k/(4**nB)%4)
-                if muA == 0 and muB == 0:
-                    F[l] = Ssparse(S,k+aA*4**nA+aB*4**nB, indList)
-                elif muA == 0 and muB == aB:
-                    F[l] = Ssparse(S,k+aA*4**nA-aB*4**nB, indList)
-                elif muA == aA and muB == 0:
-                    F[l] = Ssparse(S,k-aA*4**nA+aB*4**nB, indList)
-                elif muA == aA and muB == aB:
-                    F[l] = Ssparse(S,k-aA*4**nA-aB*4**nB, indList)
-                
-                elif muA != 0 and muA != aA and muB != 0 and muB != aB and aA!=0 and aB!=0:
-                    rtm1 = 0
-                    for k1 in range(1,4):
-                        if k1 != aA and k1 != muA:
-                            for k2 in range(1,4):
-                                if k2 != aB and k2 != muB:
-                                    rtm1 += LeviCivita(aA,muA,k1)*LeviCivita(aB,muB,k2)*Ssparse(S,k+(k1-muA)*4**nA+(k2-muB)*4**nB, indList)
-                    F[l] = rtm1
-                    
-                elif muA != 0 and muA != aA and muB != 0 and muB != aB and aA==0 and aB!=0:
-                    rtm1 = 0
-                    for k2 in range(1,4):
-                        if k2 != aB and k2 != muB:
-                            rtm1 += LeviCivita(aB,muB,k2)*Ssparse(S,k+(k2-muB)*4**nB, indList)
-                    F[l] = rtm1
-                elif muA != 0 and muA != aA and muB != 0 and muB != aB and aA!=0 and aB==0:
-                    rtm1 = 0
-                    for k1 in range(1,4):
-                        if k1 != aA and k1 != muA:
-                            rtm1 += LeviCivita(aA,muA,k1)*Ssparse(S,k+(k1-muA)*4**nA, indList)
-                    F[l] = rtm1
-            
         ##<c_eta^\dagger c_eta>
         avcp = (bA != 3)*GA+(bB != 3)*GB
         rtm1 = (bA == bB)*(bA != 3)*2*np.sqrt(GA*GB)*Q
@@ -604,9 +567,15 @@ def expQFIchgSparse(S, SO, J, Gamma, deltaT, nA, nB, Nqb, K, indList):
         
         ##calculate dR, Gplus/min
         for l, k in enumerate(indList):
-            ##<<dR>> terms
+            ##skip terms that do not contribute to dqfi
+            if l < 1+3*Nqb and SO[l] == 0:
+                continue
+            
+            ##sigma_muA, sigma_muB
             muA = int(k/(4**nA)%4)
             muB = int(k/(4**nB)%4)
+            
+            ##<<dR>> terms
             rtm1 = 0
             rtm2 = 0
             ##A terms
@@ -636,7 +605,7 @@ def expQFIchgSparse(S, SO, J, Gamma, deltaT, nA, nB, Nqb, K, indList):
             dR[l] = 2*deltaT*rtm1
         
             ##G terms
-            if l < 3*Nqb+1 and rtm2 !=0:
+            if l < 1+3*Nqb and rtm2 !=0:
                 rtm3 = (bA == bB)*np.sqrt(GA*GB)*(F[l]-Q*S[l])
                 Gplus[l] = rtm2+rtm3
                 Gmin[l] = rtm2-rtm3
@@ -652,6 +621,55 @@ def expQFIchgSparse(S, SO, J, Gamma, deltaT, nA, nB, Nqb, K, indList):
             dqfi[j] = (2*sum([np.sum(np.kron(SO[1+3*k:1+3*(k+1)],SO[1+3*i:1+3*(i+1)])*dR[int(1+3*Nqb+(2*Nqb-i-1)*i/2)+k-i-1::int(Nqb*(Nqb-1)/2)]) for i in range(Nqb-1) for k in range(i+1,Nqb)])-2*(SO[0:1+3*Nqb]@dR[0:1+3*Nqb])*(SO[0:1+3*Nqb]@S[0:1+3*Nqb])-2*deltaT*((SO[0:1+3*Nqb]@Gplus)**2/avcp+(SO[0:1+3*Nqb]@Gmin)**2/avcm))/2**(2*(Nqb-1))
                        
     return dqfi
+
+##F tensor
+def F_tensor(S, SO, A, B, Nqb, indList):
+    aA, bA, nA = A
+    aB, bB, nB = B
+    
+    F = np.zeros(1+3*Nqb)
+        
+    if aA==aB and aA==0:
+        F = S[:1+3*Nqb]
+    else:
+        for l, k in enumerate(indList[:1+3*Nqb]):
+            if SO[l] == 0:
+                continue
+            
+            muA = int(k/(4**nA)%4)
+            muB = int(k/(4**nB)%4)
+            if muA == 0 and muB == 0:
+                F[l] = Ssparse(S,k+aA*4**nA+aB*4**nB, indList)
+            elif muA == 0 and muB == aB:
+                F[l] = Ssparse(S,k+aA*4**nA-aB*4**nB, indList)
+            elif muA == aA and muB == 0:
+                F[l] = Ssparse(S,k-aA*4**nA+aB*4**nB, indList)
+            elif muA == aA and muB == aB:
+                F[l] = Ssparse(S,k-aA*4**nA-aB*4**nB, indList)
+            
+            elif muA != 0 and muA != aA and muB != 0 and muB != aB and aA!=0 and aB!=0:
+                rtm1 = 0
+                for k1 in range(1,4):
+                    if k1 != aA and k1 != muA:
+                        for k2 in range(1,4):
+                            if k2 != aB and k2 != muB:
+                                rtm1 += LeviCivita(aA,muA,k1)*LeviCivita(aB,muB,k2)*Ssparse(S,k+(k1-muA)*4**nA+(k2-muB)*4**nB, indList)
+                F[l] = rtm1
+                
+            elif muA != 0 and muA != aA and muB != 0 and muB != aB and aA==0 and aB!=0:
+                rtm1 = 0
+                for k2 in range(1,4):
+                    if k2 != aB and k2 != muB:
+                        rtm1 += LeviCivita(aB,muB,k2)*Ssparse(S,k+(k2-muB)*4**nB, indList)
+                F[l] = rtm1
+            elif muA != 0 and muA != aA and muB != 0 and muB != aB and aA!=0 and aB==0:
+                rtm1 = 0
+                for k1 in range(1,4):
+                    if k1 != aA and k1 != muA:
+                        rtm1 += LeviCivita(aA,muA,k1)*Ssparse(S,k+(k1-muA)*4**nA, indList)
+                F[l] = rtm1
+    
+    return F
 
 ##sparse implementation
 def Ssparse(S,k,indList):
