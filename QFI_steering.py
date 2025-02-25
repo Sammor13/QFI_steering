@@ -276,7 +276,7 @@ def trajec(Nqb, psi0, O, param):
     Gamma = [j**2*DeltaT for j in J]        ##jump rate, default: J*J*DeltaT
     
     ##single qubit and 2 qubit correlator Q indices
-    indList = [0]
+    indList = []
     indList.extend([a*4**i for i in range(Nqb) for a in range(1,4)])
     indList.extend([a*4**j+b*4**i for a in range(1,4) for b in range(1,4) for j in range(Nqb-1) for i in range(j+1,Nqb)])
       
@@ -306,22 +306,22 @@ def trajec(Nqb, psi0, O, param):
     slist, aList, bList = coupl_list(K) 
     
     ##operator list
-    pauliPlaqList = np.zeros(int(1+3*Nqb+9/2*Nqb*(Nqb-1)), dtype=object)
+    pauliPlaqList = np.zeros(int(3*Nqb+9/2*Nqb*(Nqb-1)), dtype=object)
     
-    Spsi = np.zeros(int(1+3*Nqb+9/2*Nqb*(Nqb-1)))
-    SO = np.zeros(int(1+3*Nqb+9/2*Nqb*(Nqb-1)))
+    #Spsi = np.zeros(int(3*Nqb+9/2*Nqb*(Nqb-1)))
+    #SO = np.zeros(int(3*Nqb+9/2*Nqb*(Nqb-1)))
     
     #compute initial values
     for l,k in enumerate(indList):
         pauliPlaqList[l] = plaqS([int(k/(4**j)%4) for j in range(Nqb)])
-        Spsi[l] = qt.expect(pauliPlaqList[l],psi0)
-        SO[l] = qt.expect(pauliPlaqList[l],O)
-      #  Spsi[l] = qt.expect(plaqS([int(k/(4**j)%4) for j in range(Nqb)]),psi0)     #for N>15 to save memory
-      #  SO[l] = qt.expect(plaqS([int(k/(4**j)%4) for j in range(Nqb)]),O)          #for N>15 to save memory
+      #  Spsi[l] = qt.expect(plaqS([int(k/(4**j)%4) for j in range(Nqb)]),psi0)     #for Nqb>13 to save memory
+      #  SO[l] = qt.expect(plaqS([int(k/(4**j)%4) for j in range(Nqb)]),O)          #for Nqb>13 to save memory
+    Spsi = qt.expect(pauliPlaqList,psi0)
+    SO = qt.expect(pauliPlaqList,O)
     
     ##Initial QFI
     phList[0] = np.angle((state1).overlap(psi0)*psi0.overlap(state2))
-    qfi[0] = (SO[0:1+3*Nqb]@SO[0:1+3*Nqb]+2*sum([np.sum(np.kron(SO[1+3*k:1+3*(k+1)],SO[1+3*j:1+3*(j+1)])*Spsi[int(1+3*Nqb+(2*Nqb-j-1)*j/2)+k-j-1::int(Nqb*(Nqb-1)/2)]) for j in range(Nqb-1) for k in range(j+1,Nqb)])-(SO[0:1+3*Nqb]@Spsi[0:1+3*Nqb])**2)/2**(2*(Nqb-1))       ##starting point for 2 corr: (Nqb-1)+(Nqb-2)+...+(Nqb-j)
+    qfi[0] = (SO[:3*Nqb]@SO[:3*Nqb]+2*sum([np.sum(np.kron(SO[3*k:3*(k+1)],SO[3*j:3*(j+1)])*Spsi[int(3*Nqb+(2*Nqb-j-1)*j/2)+k-j-1::int(Nqb*(Nqb-1)/2)]) for j in range(Nqb-1) for k in range(j+1,Nqb)])-(SO[:3*Nqb]@Spsi[:3*Nqb])**2)/2**(2*(Nqb-1))       ##starting point for 2 corr: (Nqb-1)+(Nqb-2)+...+(Nqb-j)
     
     ##Density matrix tracking
     if Nqb < 5:
@@ -355,9 +355,9 @@ def trajec(Nqb, psi0, O, param):
             G1, G2 = Gamma[n1], Gamma[n2]
             
             ##decision-making
-            deltaQFI = expQFIchgSparse(Spsi, SO, J, Gamma, DeltaT, n1, n2, Nqb, K, indList)
+            deltaQFI = expQFIchgSparse(Spsi, SO, J, Gamma, DeltaT, n1, n2, Nqb, K)
                 
-            klis = rng.choice(np.where(deltaQFI==np.nanmax(deltaQFI))[0])
+            klis = rng.choice(np.argwhere(deltaQFI == np.nanmax(deltaQFI)))
             k_List[(i-1)*int(Nqb/2)+nPair] = klis
         
             ##chosen couplings
@@ -369,15 +369,15 @@ def trajec(Nqb, psi0, O, param):
             beta2 = bList[int(klis/K)]
             
             ##chosen Pauli operators
-            sig1 = pauliPlaqList[alpha1+3*n1]
-            sig2 = pauliPlaqList[alpha2+3*n2]
+            sig1 = pauliPlaqList[alpha1+3*n1-1]
+            sig2 = pauliPlaqList[alpha2+3*n2-1]
             
-           # sig1 = plaqS([int(alpha1*4**(n1-j)%4) for j in range(Nqb)])     #for N>15 to save memory
-           # sig2 = plaqS([int(alpha2*4**(n2-j)%4) for j in range(Nqb)])     #for N>15 to save memory
+           # sig1 = plaqS([int(alpha1*4**(n1-j)%4) for j in range(Nqb)])     #for Nqb>13 to save memory
+           # sig2 = plaqS([int(alpha2*4**(n2-j)%4) for j in range(Nqb)])     #for Nqb>13 to save memory
             
             ##Time step
             #beta1=z or beta2=z or (beta1=x, beta2=y) or (beta1=y, beta2=x)
-            if beta1==3 or beta2==3 or beta1!=beta2:
+            if beta1 == 3 or beta2 == 3 or beta1 != beta2:
                 eta = (-1)**int(2*rng.random())
                 H = (beta1==3)*s1*J1*sig1+(beta2==3)*s2*J2*sig2+(beta1!=3)*(beta2!=3)*eta*np.sqrt(G1*G2)*sig1*sig2
                 c_op = (beta1!=3)*np.sqrt(G1)*sig1+(1-2*(beta1==2))*eta*1j*(beta2!=3)*np.sqrt(G2)*sig2
@@ -385,21 +385,21 @@ def trajec(Nqb, psi0, O, param):
                 xi_eta_List[i-1] = (xi, eta)
                 
             #beta1=beta2=x/y  
-            elif beta1==beta2:
+            elif beta1 == beta2:
                 c_op = [np.sqrt(G1/2)*sig1+np.sqrt(G2/2)*sig2, np.sqrt(G1/2)*sig1-np.sqrt(G2/2)*sig2]
                 psi, xi_eta_List[i-1] = ent_swap_sol(psi, DeltaT, c_op)
                   
         ##Update values
-        for l, k in enumerate(indList):
-            Spsi[l] = qt.expect(pauliPlaqList[l],psi)
-            #Spsi[l] = qt.expect(plaqS([int(k/(4**j)%4) for j in range(Nqb)]),psi)     #for N>15 to save memory
+        #for l, k in enumerate(indList):
+            #Spsi[l] = qt.expect(plaqS([int(k/(4**j)%4) for j in range(Nqb)]),psi)     #for Nqb>13 to save memory
+        Spsi = qt.expect(pauliPlaqList,psi)
         
         if i%Nst == 0:
             if Nqb < 5:
                 psi_List[int(i/Nst)] = qt.ket2dm(psi)
             phList[int(i/Nst)] = np.angle((state1).overlap(psi)*psi.overlap(state2))
             
-            qfi[int(i/Nst)] = (SO[0:1+3*Nqb]@SO[0:1+3*Nqb]+2*sum([np.sum(np.kron(SO[1+3*k:1+3*(k+1)],SO[1+3*j:1+3*(j+1)])*Spsi[int(1+3*Nqb+(2*Nqb-j-1)*j/2)+k-j-1::int(Nqb*(Nqb-1)/2)]) for j in range(Nqb-1) for k in range(j+1,Nqb)])-(SO[0:1+3*Nqb]@Spsi[0:1+3*Nqb])**2)/2**(2*(Nqb-1))       ##starting point for 2 corr: (Nqb-1)+(Nqb-2)+...+(Nqb-j)
+            qfi[int(i/Nst)] = (SO[:3*Nqb]@SO[:3*Nqb]+2*sum([np.sum(np.kron(SO[3*k:3*(k+1)],SO[3*j:3*(j+1)])*Spsi[int(3*Nqb+(2*Nqb-j-1)*j/2)+k-j-1::int(Nqb*(Nqb-1)/2)]) for j in range(Nqb-1) for k in range(j+1,Nqb)])-(SO[:3*Nqb]@Spsi[:3*Nqb])**2)/2**(2*(Nqb-1))       ##starting point for 2 corr: (Nqb-1)+(Nqb-2)+...+(Nqb-j)
             
             ##entanglement entropy for 2 qubits:
             if Nqb == 2:
@@ -530,7 +530,7 @@ def plaqSlist(Nqb):
     return  [plaqS([int(i/(4**j)%4) for j in range(Nqb)]) for i in range(4**Nqb)]
 
 ##sparse implementation QFI change
-def expQFIchgSparse(S, SO, J, Gamma, deltaT, nA, nB, Nqb, K, indList):
+def expQFIchgSparse(S, SO, J, Gamma, deltaT, nA, nB, Nqb, K):
     JA = J[nA]
     JB = J[nB]
     GA = Gamma[nA]
@@ -540,7 +540,7 @@ def expQFIchgSparse(S, SO, J, Gamma, deltaT, nA, nB, Nqb, K, indList):
     slist, aList, bList = coupl_list(K)
      
     ##expected qfi change
-    dqfi=np.zeros(K**2)
+    dqfi = np.zeros(K**2)
     
     for j in range(K**2):        
         sA = slist[j%K]
@@ -551,10 +551,13 @@ def expQFIchgSparse(S, SO, J, Gamma, deltaT, nA, nB, Nqb, K, indList):
         bB = bList[int(j/K)]
         
         ##correlator
-        Q = Ssparse(S,aA*4**nA+aB*4**nB, indList)
-        
+        if nA < nB:
+            Q = S[int(3*Nqb+(2*Nqb-nA-1)*nA/2+nB-nA-1+(aA-1+3*aB-3)*Nqb*(Nqb-1)/2)]
+        else:
+            Q = S[int(3*Nqb+(2*Nqb-nB-1)*nB/2+nA-nB-1+(aB-1+3*aA-3)*Nqb*(Nqb-1)/2)]
+            
         ##F tensor
-        F = F_tensor(S, SO, (aA, bA, nA), (aB, bB, nB), Nqb, indList)
+        F = F_tensor(S, SO, (aA, bA, nA), (aB, bB, nB), Nqb)
         
         ##<c_eta^\dagger c_eta>
         avcp = (bA != 3)*GA+(bB != 3)*GB
@@ -562,13 +565,58 @@ def expQFIchgSparse(S, SO, J, Gamma, deltaT, nA, nB, Nqb, K, indList):
         avcm = avcp-rtm1
         avcp += rtm1
         
-        dR = np.zeros(int(1+3*Nqb+9/2*Nqb*(Nqb-1)))
-        Gplus, Gmin = np.zeros(1+3*Nqb), np.zeros(1+3*Nqb)
+        dR = np.zeros(int(3*Nqb+9/2*Nqb*(Nqb-1)))
+        Gplus, Gmin = np.zeros(3*Nqb), np.zeros(3*Nqb)
         
+        rtm2 = np.zeros(3*Nqb)
+        for i in range(1,4):
+            if i != aA and aA != 0:
+                indA = [3*nA+i-1]
+                indA.extend([slice(int(3*Nqb+(2*Nqb-j-1)*j/2)+nA-j-1+int((i-1)*Nqb*(Nqb-1)/2), None, int(3*Nqb*(Nqb-1)/2)) for j in range(nA)])
+                indA.extend([slice(int(3*Nqb+(2*Nqb-nA-1)*nA/2)+j-nA-1+int((i-1)*3*Nqb*(Nqb-1)/2), int(3*Nqb+(2*Nqb-nA-1)*nA/2)+j-nA-1+int(i*3*Nqb*(Nqb-1)/2), int(Nqb*(Nqb-1)/2)) for j in range(nA+1,Nqb)])
+                
+                if bA != 3:
+                    for ind in indA:
+                        dR[ind] -= 2*deltaT*GA*S[ind]
+                    rtm2[3*nA+i-1] -= GA*S[3*nA+i-1]
+                else:
+                    for k in range(1,4):
+                        if k != i and k != aA:
+                            Sindex = [3*nA+k-1]
+                            Sindex.extend([slice(int(3*Nqb+(2*Nqb-j-1)*j/2)+nA-j-1+int((k-1)*Nqb*(Nqb-1)/2), None, int(3*Nqb*(Nqb-1)/2)) for j in range(nA)])
+                            Sindex.extend([slice(int(3*Nqb+(2*Nqb-nA-1)*nA/2)+j-nA-1+int((k-1)*3*Nqb*(Nqb-1)/2), int(3*Nqb+(2*Nqb-nA-1)*nA/2)+j-nA-1+int(k*3*Nqb*(Nqb-1)/2), int(Nqb*(Nqb-1)/2)) for j in range(nA+1,Nqb)])
+                            
+                            for l,ind in enumerate(indA):
+                                dR[ind] += 2*deltaT*sA*JA*int(LeviCivita(aA,k,i))*S[Sindex[l]]
+            ##B terms
+            if i != aB and aB != 0:
+                indB = [3*nB+i-1]
+                indB.extend([slice(int(3*Nqb+(2*Nqb-j-1)*j/2)+nB-j-1+int((i-1)*Nqb*(Nqb-1)/2), None, int(3*Nqb*(Nqb-1)/2)) for j in range(nB)])
+                indB.extend([slice(int(3*Nqb+(2*Nqb-nB-1)*nB/2)+j-nB-1+int((i-1)*3*Nqb*(Nqb-1)/2), int(3*Nqb+(2*Nqb-nB-1)*nB/2)+j-nB-1+int(i*3*Nqb*(Nqb-1)/2), int(Nqb*(Nqb-1)/2)) for j in range(nB+1,Nqb)])
+                
+                if bB != 3:
+                    for ind in indB:
+                        dR[ind] -= 2*deltaT*GB*S[ind]
+                    rtm2[3*nB+i-1] -= GB*S[3*nB+i-1]
+                else:
+                    for k in range(1,4):
+                        if k != i and k != aB:
+                            Sindex = [3*nB+k-1]
+                            Sindex.extend([slice(int(3*Nqb+(2*Nqb-j-1)*j/2)+nB-j-1+int((k-1)*Nqb*(Nqb-1)/2), None, int(3*Nqb*(Nqb-1)/2)) for j in range(nB)])
+                            Sindex.extend([slice(int(3*Nqb+(2*Nqb-nB-1)*nB/2)+j-nB-1+int((k-1)*3*Nqb*(Nqb-1)/2), int(3*Nqb+(2*Nqb-nB-1)*nB/2)+j-nB-1+int(k*3*Nqb*(Nqb-1)/2), int(Nqb*(Nqb-1)/2)) for j in range(nB+1,Nqb)])
+                
+                            for l,ind in enumerate(indB):
+                                dR[ind] += 2*deltaT*sB*JB*int(LeviCivita(aB,k,i))*S[Sindex[l]]
+            
+        rtm3 = (bA == bB)*np.sqrt(GA*GB)*(F-Q*S[:3*Nqb])
+        Gplus = rtm2+rtm3
+        Gmin = rtm2-rtm3
+        '''      
         ##calculate dR, Gplus/min
         for l, k in enumerate(indList):
             ##skip terms that do not contribute to dqfi
-            if l < 1+3*Nqb and SO[l] == 0:
+            #if l < 1+3*Nqb and SO[l] == 0:
+            if l < 3*Nqb and SO[l] == 0:
                 continue
             
             ##sigma_muA, sigma_muB
@@ -605,34 +653,37 @@ def expQFIchgSparse(S, SO, J, Gamma, deltaT, nA, nB, Nqb, K, indList):
             dR[l] = 2*deltaT*rtm1
         
             ##G terms
-            if l < 1+3*Nqb and rtm2 !=0:
+            #if l < 1+3*Nqb and rtm2 !=0:
+            if l < 3*Nqb and rtm2 !=0:
                 rtm3 = (bA == bB)*np.sqrt(GA*GB)*(F[l]-Q*S[l])
                 Gplus[l] = rtm2+rtm3
                 Gmin[l] = rtm2-rtm3
-        
+        '''
         ##assemble change to qfi
         if avcp == 0 and avcm == 0:
-            dqfi[j] = (2*sum([np.sum(np.kron(SO[1+3*k:1+3*(k+1)],SO[1+3*i:1+3*(i+1)])*dR[int(1+3*Nqb+(2*Nqb-i-1)*i/2)+k-i-1::int(Nqb*(Nqb-1)/2)]) for i in range(Nqb-1) for k in range(i+1,Nqb)])-2*(SO[0:1+3*Nqb]@dR[0:1+3*Nqb])*(SO[0:1+3*Nqb]@S[0:1+3*Nqb]))/2**(2*(Nqb-1))
+            dqfi[j] = (2*sum([np.sum(np.kron(SO[3*k:3*(k+1)],SO[3*i:3*(i+1)])*dR[int(3*Nqb+(2*Nqb-i-1)*i/2)+k-i-1::int(Nqb*(Nqb-1)/2)]) for i in range(Nqb-1) for k in range(i+1,Nqb)])-2*(SO[:3*Nqb]@dR[:3*Nqb])*(SO[:3*Nqb]@S[:3*Nqb]))/2**(2*(Nqb-1))
         elif avcp == 0:
-            dqfi[j] = (2*sum([np.sum(np.kron(SO[1+3*k:1+3*(k+1)],SO[1+3*i:1+3*(i+1)])*dR[int(1+3*Nqb+(2*Nqb-i-1)*i/2)+k-i-1::int(Nqb*(Nqb-1)/2)]) for i in range(Nqb-1) for k in range(i+1,Nqb)])-2*(SO[0:1+3*Nqb]@dR[0:1+3*Nqb])*(SO[0:1+3*Nqb]@S[0:1+3*Nqb])-2*deltaT*(SO[0:1+3*Nqb]@Gmin)**2/avcm)/2**(2*(Nqb-1))
+            dqfi[j] = (2*sum([np.sum(np.kron(SO[3*k:3*(k+1)],SO[3*i:3*(i+1)])*dR[int(3*Nqb+(2*Nqb-i-1)*i/2)+k-i-1::int(Nqb*(Nqb-1)/2)]) for i in range(Nqb-1) for k in range(i+1,Nqb)])-2*(SO[:3*Nqb]@dR[:3*Nqb])*(SO[:3*Nqb]@S[:3*Nqb])-2*deltaT*(SO[:3*Nqb]@Gmin)**2/avcm)/2**(2*(Nqb-1))
         elif avcm == 0:
-            dqfi[j] = (2*sum([np.sum(np.kron(SO[1+3*k:1+3*(k+1)],SO[1+3*i:1+3*(i+1)])*dR[int(1+3*Nqb+(2*Nqb-i-1)*i/2)+k-i-1::int(Nqb*(Nqb-1)/2)]) for i in range(Nqb-1) for k in range(i+1,Nqb)])-2*(SO[0:1+3*Nqb]@dR[0:1+3*Nqb])*(SO[0:1+3*Nqb]@S[0:1+3*Nqb])-2*deltaT*(SO[0:1+3*Nqb]@Gplus)**2/avcp)/2**(2*(Nqb-1))
+            dqfi[j] = (2*sum([np.sum(np.kron(SO[3*k:3*(k+1)],SO[3*i:3*(i+1)])*dR[int(3*Nqb+(2*Nqb-i-1)*i/2)+k-i-1::int(Nqb*(Nqb-1)/2)]) for i in range(Nqb-1) for k in range(i+1,Nqb)])-2*(SO[:3*Nqb]@dR[:3*Nqb])*(SO[:3*Nqb]@S[:3*Nqb])-2*deltaT*(SO[:3*Nqb]@Gplus)**2/avcp)/2**(2*(Nqb-1))
         else:
-            dqfi[j] = (2*sum([np.sum(np.kron(SO[1+3*k:1+3*(k+1)],SO[1+3*i:1+3*(i+1)])*dR[int(1+3*Nqb+(2*Nqb-i-1)*i/2)+k-i-1::int(Nqb*(Nqb-1)/2)]) for i in range(Nqb-1) for k in range(i+1,Nqb)])-2*(SO[0:1+3*Nqb]@dR[0:1+3*Nqb])*(SO[0:1+3*Nqb]@S[0:1+3*Nqb])-2*deltaT*((SO[0:1+3*Nqb]@Gplus)**2/avcp+(SO[0:1+3*Nqb]@Gmin)**2/avcm))/2**(2*(Nqb-1))
+            dqfi[j] = (2*sum([np.sum(np.kron(SO[3*k:3*(k+1)],SO[3*i:3*(i+1)])*dR[int(3*Nqb+(2*Nqb-i-1)*i/2)+k-i-1::int(Nqb*(Nqb-1)/2)]) for i in range(Nqb-1) for k in range(i+1,Nqb)])-2*(SO[:3*Nqb]@dR[:3*Nqb])*(SO[:3*Nqb]@S[:3*Nqb])-2*deltaT*((SO[:3*Nqb]@Gplus)**2/avcp+(SO[:3*Nqb]@Gmin)**2/avcm))/2**(2*(Nqb-1))
                        
     return dqfi
 
 ##F tensor
-def F_tensor(S, SO, A, B, Nqb, indList):
+def F_tensor(S, SO, A, B, Nqb):
     aA, bA, nA = A
     aB, bB, nB = B
     
-    F = np.zeros(1+3*Nqb)
+    F = np.zeros(3*Nqb)
         
-    if aA==aB and aA==0:
-        F = S[:1+3*Nqb]
+    if aA == aB and aA == 0:
+        F = S[:3*Nqb]
     else:
-        for l, k in enumerate(indList[:1+3*Nqb]):
+        '''
+        #for l, k in enumerate(indList[:1+3*Nqb]):
+        for l, k in enumerate(indList[:3*Nqb]):
             if SO[l] == 0:
                 continue
             
@@ -644,31 +695,41 @@ def F_tensor(S, SO, A, B, Nqb, indList):
                 F[l] = Ssparse(S,k+aA*4**nA-aB*4**nB, indList)
             elif muA == aA and muB == 0:
                 F[l] = Ssparse(S,k-aA*4**nA+aB*4**nB, indList)
-            elif muA == aA and muB == aB:
-                F[l] = Ssparse(S,k-aA*4**nA-aB*4**nB, indList)
-            
-            elif muA != 0 and muA != aA and muB != 0 and muB != aB and aA!=0 and aB!=0:
-                rtm1 = 0
-                for k1 in range(1,4):
-                    if k1 != aA and k1 != muA:
-                        for k2 in range(1,4):
-                            if k2 != aB and k2 != muB:
-                                rtm1 += LeviCivita(aA,muA,k1)*LeviCivita(aB,muB,k2)*Ssparse(S,k+(k1-muA)*4**nA+(k2-muB)*4**nB, indList)
-                F[l] = rtm1
-                
-            elif muA != 0 and muA != aA and muB != 0 and muB != aB and aA==0 and aB!=0:
-                rtm1 = 0
-                for k2 in range(1,4):
-                    if k2 != aB and k2 != muB:
-                        rtm1 += LeviCivita(aB,muB,k2)*Ssparse(S,k+(k2-muB)*4**nB, indList)
-                F[l] = rtm1
-            elif muA != 0 and muA != aA and muB != 0 and muB != aB and aA!=0 and aB==0:
-                rtm1 = 0
-                for k1 in range(1,4):
-                    if k1 != aA and k1 != muA:
-                        rtm1 += LeviCivita(aA,muA,k1)*Ssparse(S,k+(k1-muA)*4**nA, indList)
-                F[l] = rtm1
-    
+          #  elif muA == aA and muB == aB:
+          #      F[l] = Ssparse(S,k-aA*4**nA-aB*4**nB, indList)
+             
+          #  elif muA != 0 and muA != aA and muB != 0 and muB != aB and aA!=0 and aB!=0:
+          #      rtm1 = 0
+          #      for k1 in range(1,4):
+          #          if k1 != aA and k1 != muA:
+          #              for k2 in range(1,4):
+          #                  if k2 != aB and k2 != muB:
+          #                      rtm1 += LeviCivita(aA,muA,k1)*LeviCivita(aB,muB,k2)*Ssparse(S,k+(k1-muA)*4**nA+(k2-muB)*4**nB, indList)
+          #      F[l] = rtm1
+          #      
+          #  elif muA != 0 and muA != aA and muB != 0 and muB != aB and aA==0 and aB!=0:
+          #      rtm1 = 0
+          #      for k2 in range(1,4):
+          #          if k2 != aB and k2 != muB:
+          #              rtm1 += LeviCivita(aB,muB,k2)*Ssparse(S,k+(k2-muB)*4**nB, indList)
+          #      F[l] = rtm1
+          #  elif muA != 0 and muA != aA and muB != 0 and muB != aB and aA!=0 and aB==0:
+          #      rtm1 = 0
+          #      for k1 in range(1,4):
+          #          if k1 != aA and k1 != muA:
+          #              rtm1 += LeviCivita(aA,muA,k1)*Ssparse(S,k+(k1-muA)*4**nA, indList)
+          #      F[l] = rtm1
+        '''
+        #F[:3*min(nA,nB)] = S[:3*min(nA,nB)] #=S[l...aA,aB]
+        #F[3+3*min(nA,nB):3*max(nA,nB)] = S[3*min(nA,nB)+3:3*max(nA,nB)] #=S[l...aA,aB]
+        #F[3+3*max(nA,nB):] = S[3*max(nA,nB)+3:] #=S[l...aA,aB]
+        F[3*nA+aA-1] = S[3*nB+aB-1]
+        F[3*nB+aB-1] = S[3*nA+aA-1]
+        if nA < nB:
+            F[0] = S[int(3*Nqb+(2*Nqb-nA-1)*nA/2+nB-nA-1+(aA-1+3*aB-3)*Nqb*(Nqb-1)/2)]
+        else:
+            F[0] = S[int(3*Nqb+(2*Nqb-nB-1)*nB/2+nA-nB-1+(aB-1+3*aA-3)*Nqb*(Nqb-1)/2)]
+        
     return F
 
 ##sparse implementation
