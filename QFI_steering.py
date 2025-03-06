@@ -357,7 +357,7 @@ def trajec(Nqb, psi0, O, param):
             ##decision-making
             deltaQFI = expQFIchgSparse(Spsi, SO, J, Gamma, DeltaT, n1, n2, Nqb, K)
                 
-            klis = rng.choice(np.argwhere(deltaQFI == np.nanmax(deltaQFI)))
+            klis = rng.choice(np.argwhere(deltaQFI == np.nanmax(deltaQFI)))[0]
             k_List[(i-1)*int(Nqb/2)+nPair] = klis
         
             ##chosen couplings
