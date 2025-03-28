@@ -35,12 +35,17 @@ def main():
         N = 500
     elif DeltaT == 0.1:
         N=800                                           ##nr of time steps
-    M = 100                                             ##number of trajectories
+    M = 10                                             ##number of trajectories
     Nst = 1                                             ##every Nst´th step is saved
     
     ##couplings
     K = 6                                               ##nr of couplings: 3, 4, 6, 7, 8, 9, 10, 11, 12, 14
     params = [N, Nst, DeltaT, J[:Nqb], K]
+    
+    ##target QFI
+    #targQFI = Nqb**2
+    m = 0       #Dicke state m: W state m=Nqb/2-1
+    targQFI = Nqb**2/2-2*m**2+Nqb
     
     ##Observable for O_i=n*(X,Y,Z)
     #n = np.array([1,1,1])
@@ -59,7 +64,7 @@ def main():
     print(r'[N, Nst, DeltaT, J, K]={0}, M={1}'.format(params, M))
     
     ##parallel running M trajectories
-    results = qt.parallel_map(trajec, [Nqb]*M, task_kwargs=dict(psi0=psi0, O=O, param=params), progress_bar=True)#, num_cpus=2)
+    results = qt.parallel_map(trajec, [Nqb]*M, task_kwargs=dict(psi0=psi0, O=O, param=params, targQFI=targQFI), progress_bar=True)#, num_cpus=2)
     result_array = np.array(results, dtype=object)
     if Nqb == 2:
         k_List, xi_eta_List, psi_List, QFI, phList, S_List = result_array.T
@@ -220,6 +225,7 @@ def main():
     ax.plot(np.arange(0,N+1,Nst), QFIDistr[0], '--', label=r'Single trajectory', linewidth=2, alpha=0.7)
     ax.plot(np.arange(0,N+1,Nst), QFIDistr[1], '--', label=r'Single trajectory', linewidth=2, alpha=0.7)
     ax.plot(np.arange(0,N+1,Nst), QFIDistr[2], '--', label=r'Single trajectory', linewidth=2, alpha=0.7)
+    ax.plot(np.arange(0,N+1,Nst), np.ones(int(N/Nst)+1)*targQFI, 'k:')
     ax.set_xlabel(r'$n_t$',fontsize=35)
     ax.set_ylabel(r'$F_Q$',fontsize=35)
     ax.minorticks_on()
@@ -271,7 +277,7 @@ def main():
        
 ####################################################################################        
 ##Trajectory simulator
-def trajec(Nqb, psi0, O, param):
+def trajec(Nqb, psi0, O, param, targQFI):
     N, Nst, DeltaT, J, K = param            ##unpack parameters
     Gamma = [j**2*DeltaT for j in J]        ##jump rate, default: J*J*DeltaT
     
@@ -322,6 +328,7 @@ def trajec(Nqb, psi0, O, param):
     ##Initial QFI
     phList[0] = np.angle((state1).overlap(psi0)*psi0.overlap(state2))
     qfi[0] = (SO[:3*Nqb]@SO[:3*Nqb]+2*sum([np.sum(np.kron(SO[3*k:3*(k+1)],SO[3*j:3*(j+1)])*Spsi[int(3*Nqb+(2*Nqb-j-1)*j/2)+k-j-1::int(Nqb*(Nqb-1)/2)]) for j in range(Nqb-1) for k in range(j+1,Nqb)])-(SO[:3*Nqb]@Spsi[:3*Nqb])**2)/2**(2*(Nqb-1))       ##starting point for 2 corr: (Nqb-1)+(Nqb-2)+...+(Nqb-j)
+    qfiTemp = qfi[0]
     
     ##Density matrix tracking
     if Nqb < 5:
@@ -354,10 +361,18 @@ def trajec(Nqb, psi0, O, param):
             J1, J2 = J[n1], J[n2]
             G1, G2 = Gamma[n1], Gamma[n2]
             
-            ##decision-making
+            ##decision-making        
             deltaQFI = expQFIchgSparse(Spsi, SO, J, Gamma, DeltaT, n1, n2, Nqb, K)
-                
-            klis = rng.choice(np.argwhere(deltaQFI == np.nanmax(deltaQFI)))[0]
+            
+            if targQFI == Nqb**2:
+                klis = rng.choice(np.argwhere(deltaQFI == np.nanmax(deltaQFI)))[0]
+            elif qfiTemp > targQFI:
+                cost = (deltaQFI>=targQFI-qfiTemp)*deltaQFI+(deltaQFI>targQFI-qfiTemp)*(2*targQFI-2*qfiTemp-deltaQFI)
+                klis = rng.choice(np.argwhere(cost == np.nanmin(cost)))[0]  
+            else:
+                cost = (deltaQFI<=targQFI-qfiTemp)*-deltaQFI+(deltaQFI>targQFI-qfiTemp)*(2*qfiTemp-2*targQFI+deltaQFI)
+                klis = rng.choice(np.argwhere(cost == np.nanmin(cost)))[0]  
+            
             k_List[(i-1)*int(Nqb/2)+nPair] = klis
         
             ##chosen couplings
@@ -394,12 +409,15 @@ def trajec(Nqb, psi0, O, param):
             #Spsi[l] = qt.expect(plaqS([int(k/(4**j)%4) for j in range(Nqb)]),psi)     #for Nqb>13 to save memory
         Spsi = qt.expect(pauliPlaqList,psi)
         
+        qfiTemp = (SO[:3*Nqb]@SO[:3*Nqb]+2*sum([np.sum(np.kron(SO[3*k:3*(k+1)],SO[3*j:3*(j+1)])*Spsi[int(3*Nqb+(2*Nqb-j-1)*j/2)+k-j-1::int(Nqb*(Nqb-1)/2)]) for j in range(Nqb-1) for k in range(j+1,Nqb)])-(SO[:3*Nqb]@Spsi[:3*Nqb])**2)/2**(2*(Nqb-1))       ##starting point for 2 corr: (Nqb-1)+(Nqb-2)+...+(Nqb-j)
+        
         if i%Nst == 0:
             if Nqb < 5:
                 psi_List[int(i/Nst)] = qt.ket2dm(psi)
             phList[int(i/Nst)] = np.angle((state1).overlap(psi)*psi.overlap(state2))
             
-            qfi[int(i/Nst)] = (SO[:3*Nqb]@SO[:3*Nqb]+2*sum([np.sum(np.kron(SO[3*k:3*(k+1)],SO[3*j:3*(j+1)])*Spsi[int(3*Nqb+(2*Nqb-j-1)*j/2)+k-j-1::int(Nqb*(Nqb-1)/2)]) for j in range(Nqb-1) for k in range(j+1,Nqb)])-(SO[:3*Nqb]@Spsi[:3*Nqb])**2)/2**(2*(Nqb-1))       ##starting point for 2 corr: (Nqb-1)+(Nqb-2)+...+(Nqb-j)
+            #qfi[int(i/Nst)] = (SO[:3*Nqb]@SO[:3*Nqb]+2*sum([np.sum(np.kron(SO[3*k:3*(k+1)],SO[3*j:3*(j+1)])*Spsi[int(3*Nqb+(2*Nqb-j-1)*j/2)+k-j-1::int(Nqb*(Nqb-1)/2)]) for j in range(Nqb-1) for k in range(j+1,Nqb)])-(SO[:3*Nqb]@Spsi[:3*Nqb])**2)/2**(2*(Nqb-1))       ##starting point for 2 corr: (Nqb-1)+(Nqb-2)+...+(Nqb-j)
+            qfi[int(i/Nst)] = qfiTemp
             
             ##entanglement entropy for 2 qubits:
             if Nqb == 2:
