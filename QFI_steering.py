@@ -156,7 +156,7 @@ def main():
     
     ##coupling histogram
     fig, ax = plt.subplots(figsize=(8,6))
-    plt.hist(np.concatenate(k_List), bins=np.arange(0,K**2), alpha=0.5, label=r'$[p_r]$', edgecolor='grey')
+    plt.hist(np.concatenate(k_List), bins=np.arange(0,K**2+1), alpha=0.5, label=r'$[p_r]$', edgecolor='grey')
     
     plt.xlim(left=0, right=K**2)
     plt.minorticks_on()
@@ -570,12 +570,12 @@ def expQFIchgSparse(S, SO, J, Gamma, deltaT, nA, nB, Nqb, K):
         
         ##correlator
         if nA < nB:
-            Q = S[int(3*Nqb+(2*Nqb-nA-1)*nA/2+nB-nA-1+(aA-1+3*aB-3)*Nqb*(Nqb-1)/2)]
+            Q = S[int(3*Nqb+(2*Nqb-nA-1)*nA/2+nB-nA-1+(aB-1+3*aA-3)*Nqb*(Nqb-1)/2)]
         else:
-            Q = S[int(3*Nqb+(2*Nqb-nB-1)*nB/2+nA-nB-1+(aB-1+3*aA-3)*Nqb*(Nqb-1)/2)]
+            Q = S[int(3*Nqb+(2*Nqb-nB-1)*nB/2+nA-nB-1+(aA-1+3*aB-3)*Nqb*(Nqb-1)/2)]
             
         ##F tensor
-        F = F_tensor(S, SO, (aA, bA, nA), (aB, bB, nB), Nqb)
+        F = F_tensor(S, (aA, bA, nA), (aB, bB, nB), Nqb)
         
         ##<c_eta^\dagger c_eta>
         avcp = (bA != 3)*GA+(bB != 3)*GB
@@ -590,8 +590,8 @@ def expQFIchgSparse(S, SO, J, Gamma, deltaT, nA, nB, Nqb, K):
         for i in range(1,4):
             if i != aA and aA != 0:
                 indA = [3*nA+i-1]
-                indA.extend([slice(int(3*Nqb+(2*Nqb-j-1)*j/2)+nA-j-1+int((i-1)*Nqb*(Nqb-1)/2), None, int(3*Nqb*(Nqb-1)/2)) for j in range(nA)])
-                indA.extend([slice(int(3*Nqb+(2*Nqb-nA-1)*nA/2)+j-nA-1+int((i-1)*3*Nqb*(Nqb-1)/2), int(3*Nqb+(2*Nqb-nA-1)*nA/2)+j-nA-1+int(i*3*Nqb*(Nqb-1)/2), int(Nqb*(Nqb-1)/2)) for j in range(nA+1,Nqb)])
+                indA.extend([slice(int(3*Nqb+(2*Nqb-l-1)*l/2)+nA-l-1+int((i-1)*Nqb*(Nqb-1)/2), None, int(3*Nqb*(Nqb-1)/2)) for l in range(nA)])
+                indA.extend([slice(int(3*Nqb+(2*Nqb-nA-1)*nA/2)+l-nA-1+int((i-1)*3*Nqb*(Nqb-1)/2), int(3*Nqb+(2*Nqb-nA-1)*nA/2)+l-nA-1+int(i*3*Nqb*(Nqb-1)/2), int(Nqb*(Nqb-1)/2)) for l in range(nA+1,Nqb)])
                 
                 if bA != 3:
                     for ind in indA:
@@ -601,16 +601,16 @@ def expQFIchgSparse(S, SO, J, Gamma, deltaT, nA, nB, Nqb, K):
                     for k in range(1,4):
                         if k != i and k != aA:
                             Sindex = [3*nA+k-1]
-                            Sindex.extend([slice(int(3*Nqb+(2*Nqb-j-1)*j/2)+nA-j-1+int((k-1)*Nqb*(Nqb-1)/2), None, int(3*Nqb*(Nqb-1)/2)) for j in range(nA)])
-                            Sindex.extend([slice(int(3*Nqb+(2*Nqb-nA-1)*nA/2)+j-nA-1+int((k-1)*3*Nqb*(Nqb-1)/2), int(3*Nqb+(2*Nqb-nA-1)*nA/2)+j-nA-1+int(k*3*Nqb*(Nqb-1)/2), int(Nqb*(Nqb-1)/2)) for j in range(nA+1,Nqb)])
+                            Sindex.extend([slice(int(3*Nqb+(2*Nqb-l-1)*l/2)+nA-l-1+int((k-1)*Nqb*(Nqb-1)/2), None, int(3*Nqb*(Nqb-1)/2)) for l in range(nA)])
+                            Sindex.extend([slice(int(3*Nqb+(2*Nqb-nA-1)*nA/2)+l-nA-1+int((k-1)*3*Nqb*(Nqb-1)/2), int(3*Nqb+(2*Nqb-nA-1)*nA/2)+l-nA-1+int(k*3*Nqb*(Nqb-1)/2), int(Nqb*(Nqb-1)/2)) for l in range(nA+1,Nqb)])
                             
                             for l,ind in enumerate(indA):
                                 dR[ind] += 2*deltaT*sA*JA*int(LeviCivita(aA,k,i))*S[Sindex[l]]
             ##B terms
             if i != aB and aB != 0:
                 indB = [3*nB+i-1]
-                indB.extend([slice(int(3*Nqb+(2*Nqb-j-1)*j/2)+nB-j-1+int((i-1)*Nqb*(Nqb-1)/2), None, int(3*Nqb*(Nqb-1)/2)) for j in range(nB)])
-                indB.extend([slice(int(3*Nqb+(2*Nqb-nB-1)*nB/2)+j-nB-1+int((i-1)*3*Nqb*(Nqb-1)/2), int(3*Nqb+(2*Nqb-nB-1)*nB/2)+j-nB-1+int(i*3*Nqb*(Nqb-1)/2), int(Nqb*(Nqb-1)/2)) for j in range(nB+1,Nqb)])
+                indB.extend([slice(int(3*Nqb+(2*Nqb-l-1)*l/2)+nB-l-1+int((i-1)*Nqb*(Nqb-1)/2), None, int(3*Nqb*(Nqb-1)/2)) for l in range(nB)])
+                indB.extend([slice(int(3*Nqb+(2*Nqb-nB-1)*nB/2)+l-nB-1+int((i-1)*3*Nqb*(Nqb-1)/2), int(3*Nqb+(2*Nqb-nB-1)*nB/2)+l-nB-1+int(i*3*Nqb*(Nqb-1)/2), int(Nqb*(Nqb-1)/2)) for l in range(nB+1,Nqb)])
                 
                 if bB != 3:
                     for ind in indB:
@@ -620,8 +620,8 @@ def expQFIchgSparse(S, SO, J, Gamma, deltaT, nA, nB, Nqb, K):
                     for k in range(1,4):
                         if k != i and k != aB:
                             Sindex = [3*nB+k-1]
-                            Sindex.extend([slice(int(3*Nqb+(2*Nqb-j-1)*j/2)+nB-j-1+int((k-1)*Nqb*(Nqb-1)/2), None, int(3*Nqb*(Nqb-1)/2)) for j in range(nB)])
-                            Sindex.extend([slice(int(3*Nqb+(2*Nqb-nB-1)*nB/2)+j-nB-1+int((k-1)*3*Nqb*(Nqb-1)/2), int(3*Nqb+(2*Nqb-nB-1)*nB/2)+j-nB-1+int(k*3*Nqb*(Nqb-1)/2), int(Nqb*(Nqb-1)/2)) for j in range(nB+1,Nqb)])
+                            Sindex.extend([slice(int(3*Nqb+(2*Nqb-l-1)*l/2)+nB-l-1+int((k-1)*Nqb*(Nqb-1)/2), None, int(3*Nqb*(Nqb-1)/2)) for l in range(nB)])
+                            Sindex.extend([slice(int(3*Nqb+(2*Nqb-nB-1)*nB/2)+l-nB-1+int((k-1)*3*Nqb*(Nqb-1)/2), int(3*Nqb+(2*Nqb-nB-1)*nB/2)+l-nB-1+int(k*3*Nqb*(Nqb-1)/2), int(Nqb*(Nqb-1)/2)) for l in range(nB+1,Nqb)])
                 
                             for l,ind in enumerate(indB):
                                 dR[ind] += 2*deltaT*sB*JB*int(LeviCivita(aB,k,i))*S[Sindex[l]]
@@ -643,7 +643,7 @@ def expQFIchgSparse(S, SO, J, Gamma, deltaT, nA, nB, Nqb, K):
     return dqfi
 
 ##F tensor
-def F_tensor(S, SO, A, B, Nqb):
+def F_tensor(S, A, B, Nqb):
     aA, bA, nA = A
     aB, bB, nB = B
     
