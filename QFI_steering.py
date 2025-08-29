@@ -52,8 +52,12 @@ def main():
     #print('n={0}'.format(n))
     #O = sum([n[0]*plaqS([int(4**(j-i)%4) for i in range(Nqb)])+n[1]*plaqS([int(2*4**(j-i)%4) for i in range(Nqb)])+n[2]*plaqS([int(3*4**(j-i)%4) for i in range(Nqb)]) for j in range(Nqb)])/2/np.linalg.norm(n)
     #O = sum([plaqS([int(3*4**(i-j)%4) for j in range(Nqb)]) for i in range(Nqb)])/2                                                            #O_i=Z
-    O = sum([plaqS([int(4**(j-i)%4) for i in range(Nqb)])+plaqS([int(3*4**(j-i)%4) for i in range(Nqb)]) for j in range(Nqb)])/2/np.sqrt(2)     #O_i=X+Z
- 
+    #O = sum([plaqS([int(4**(j-i)%4) for i in range(Nqb)])+plaqS([int(3*4**(j-i)%4) for i in range(Nqb)]) for j in range(Nqb)])/2/np.sqrt(2)     #O_i=X+Z
+    
+    #O = sum([n[0]*plaqS([0]*j+[1]+[0]*(Nqb-j-1))+n[1]*plaqS([0]*j+[2]+[0]*(Nqb-j-1))+n[2]*plaqS([0]*j+[3]+[0]*(Nqb-j-1)) for j in range(Nqb)])/2/np.linalg.norm(n)     ##arbitrary local observable
+    #O = sum(plaqS([0]*j+[3]+[0]*(Nqb-j-1)) for j in range(Nqb))/2     #O_i=Z
+    O = sum(plaqS([0]*j+[1]+[0]*(Nqb-j-1))+plaqS([0]*j+[3]+[0]*(Nqb-j-1)) for j in range(Nqb))/2/np.sqrt(2)     #O_i=X+Z
+    
     ##Initial state
     psi0 = qt.qstate(Nqb*'d')               ##starting in 00...0 state
     psi0 = psi0.unit()
@@ -285,6 +289,9 @@ def trajec(Nqb, psi0, O, param, targQFI):
     indList = []
     indList.extend([a*4**i for i in range(Nqb) for a in range(1,4)])
     indList.extend([a*4**j+b*4**i for a in range(1,4) for b in range(1,4) for j in range(Nqb-1) for i in range(j+1,Nqb)])
+    #indList = [[0]*i+[a]+[0]*(Nqb-i-1) for i in range(Nqb) for a in range(1,4)]
+    #indList.extend([[0]*j+[a]+[0]*(i-j-1)+[b]+[0]*(Nqb-i-1) for a in range(1,4) for b in range(1,4) for j in range(Nqb-1) for i in range(j+1,Nqb)])
+    
       
     #random number generator
     rng = np.random.default_rng()
@@ -320,8 +327,12 @@ def trajec(Nqb, psi0, O, param, targQFI):
     #compute initial values
     for l,k in enumerate(indList):
         pauliPlaqList[l] = plaqS([int(k/(4**j)%4) for j in range(Nqb)])
+        #pauliPlaqList[l] = plaqS(k)
       #  Spsi[l] = qt.expect(plaqS([int(k/(4**j)%4) for j in range(Nqb)]),psi0)     #for Nqb>13 to save memory
       #  SO[l] = qt.expect(plaqS([int(k/(4**j)%4) for j in range(Nqb)]),O)          #for Nqb>13 to save memory
+    #Spsi = np.array([qt.expect(plaqS(k),psi0) for k in indList])
+    #SO= np.array([qt.expect(plaqS(k),O) for k in indList])
+    
     Spsi = qt.expect(pauliPlaqList,psi0)
     SO = qt.expect(pauliPlaqList,O)
     
@@ -389,6 +400,8 @@ def trajec(Nqb, psi0, O, param, targQFI):
             
            # sig1 = plaqS([int(alpha1*4**(n1-j)%4) for j in range(Nqb)])     #for Nqb>13 to save memory
            # sig2 = plaqS([int(alpha2*4**(n2-j)%4) for j in range(Nqb)])     #for Nqb>13 to save memory
+           # sig1 = plaqS([0]*n1+[alpha1]+[0]*(Nqb-n1-1))     #for Nqb>13 to save memory
+           # sig2 = plaqS([0]*n2+[alpha2]+[0]*(Nqb-n2-1))     #for Nqb>13 to save memory
             
             ##Time step
             #beta1=z or beta2=z or (beta1=x, beta2=y) or (beta1=y, beta2=x)
@@ -407,6 +420,7 @@ def trajec(Nqb, psi0, O, param, targQFI):
         ##Update values
         #for l, k in enumerate(indList):
             #Spsi[l] = qt.expect(plaqS([int(k/(4**j)%4) for j in range(Nqb)]),psi)     #for Nqb>13 to save memory
+        #Spsi = np.array([qt.expect(plaqS(k),psi0) for k in indList])
         Spsi = qt.expect(pauliPlaqList,psi)
         
         qfiTemp = (SO[:3*Nqb]@SO[:3*Nqb]+2*sum([np.sum(np.kron(SO[3*k:3*(k+1)],SO[3*j:3*(j+1)])*Spsi[int(3*Nqb+(2*Nqb-j-1)*j/2)+k-j-1::int(Nqb*(Nqb-1)/2)]) for j in range(Nqb-1) for k in range(j+1,Nqb)])-(SO[:3*Nqb]@Spsi[:3*Nqb])**2)/2**(2*(Nqb-1))       ##starting point for 2 corr: (Nqb-1)+(Nqb-2)+...+(Nqb-j)
@@ -544,8 +558,8 @@ def unitsol(psi, deltaT, H, c_op, P):
 def plaqS(ind):
     return qt.tensor([s[i] for i in ind])
     
-def plaqSlist(Nqb):
-    return  [plaqS([int(i/(4**j)%4) for j in range(Nqb)]) for i in range(4**Nqb)]
+#def plaqSlist(Nqb):
+#    return  [plaqS([int(i/(4**j)%4) for j in range(Nqb)]) for i in range(4**Nqb)]
 
 ##sparse implementation QFI change
 def expQFIchgSparse(S, SO, J, Gamma, deltaT, nA, nB, Nqb, K):
