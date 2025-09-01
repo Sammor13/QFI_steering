@@ -405,11 +405,11 @@ def trajec(Nqb, psi0, O, param, targQFI):
             
             ##Time step
             #beta1=z or beta2=z or (beta1=x, beta2=y) or (beta1=y, beta2=x)
-            if beta1 == 3 or beta2 == 3 or beta1 != beta2:
+            if beta1%3 == 0 or beta2%3 == 0 or beta1!=beta2:
                 eta = (-1)**int(2*rng.random())
-                H = (beta1==3)*s1*J1*sig1+(beta2==3)*s2*J2*sig2+(beta1!=3)*(beta2!=3)*eta*np.sqrt(G1*G2)*sig1*sig2
-                c_op = (beta1!=3)*np.sqrt(G1)*sig1+(1-2*(beta1==2))*eta*1j*(beta2!=3)*np.sqrt(G2)*sig2
-                psi, xi = unitsol(psi, DeltaT, H, c_op, ((beta1!=3)*G1+(beta2!=3)*G2)*DeltaT)
+                H = (beta1%3==0)*s1*J1*sig1+(beta2%3==0)*s2*J2*sig2+(beta1%3!=0)*(beta2%3!=0)*eta*np.sqrt(G1*G2)*sig1*sig2
+                c_op = (beta1%3!=0)*np.sqrt(G1)*sig1+(1-2*(beta1==2))*eta*1j*(beta2%3!=0)*np.sqrt(G2)*sig2
+                psi, xi = unitsol(psi, DeltaT, H, c_op, ((beta1%3!=0)*G1+(beta2%3!=0)*G2)*DeltaT)
                 xi_eta_List[i-1] = (xi, eta)
                 
             #beta1=beta2=x/y  
@@ -592,8 +592,8 @@ def expQFIchgSparse(S, SO, J, Gamma, deltaT, nA, nB, Nqb, K):
         F = F_tensor(S, (aA, bA, nA), (aB, bB, nB), Nqb)
         
         ##<c_eta^\dagger c_eta>
-        avcp = (bA != 3)*GA+(bB != 3)*GB
-        rtm1 = (bA == bB)*(bA != 3)*2*np.sqrt(GA*GB)*Q
+        avcp = (bA%3 != 0)*GA+(bB%3 != 0)*GB
+        rtm1 = (bA == bB)*(bA%3 != 0)*2*np.sqrt(GA*GB)*Q
         avcm = avcp-rtm1
         avcp += rtm1
         
@@ -607,7 +607,7 @@ def expQFIchgSparse(S, SO, J, Gamma, deltaT, nA, nB, Nqb, K):
                 indA.extend([slice(int(3*Nqb+(2*Nqb-l-1)*l/2)+nA-l-1+int((i-1)*Nqb*(Nqb-1)/2), None, int(3*Nqb*(Nqb-1)/2)) for l in range(nA)])
                 indA.extend([slice(int(3*Nqb+(2*Nqb-nA-1)*nA/2)+l-nA-1+int((i-1)*3*Nqb*(Nqb-1)/2), int(3*Nqb+(2*Nqb-nA-1)*nA/2)+l-nA-1+int(i*3*Nqb*(Nqb-1)/2), int(Nqb*(Nqb-1)/2)) for l in range(nA+1,Nqb)])
                 
-                if bA != 3:
+                if bA%3 != 0:
                     for ind in indA:
                         dR[ind] -= 2*deltaT*GA*S[ind]
                     rtm2[3*nA+i-1] -= GA*S[3*nA+i-1]
@@ -626,7 +626,7 @@ def expQFIchgSparse(S, SO, J, Gamma, deltaT, nA, nB, Nqb, K):
                 indB.extend([slice(int(3*Nqb+(2*Nqb-l-1)*l/2)+nB-l-1+int((i-1)*Nqb*(Nqb-1)/2), None, int(3*Nqb*(Nqb-1)/2)) for l in range(nB)])
                 indB.extend([slice(int(3*Nqb+(2*Nqb-nB-1)*nB/2)+l-nB-1+int((i-1)*3*Nqb*(Nqb-1)/2), int(3*Nqb+(2*Nqb-nB-1)*nB/2)+l-nB-1+int(i*3*Nqb*(Nqb-1)/2), int(Nqb*(Nqb-1)/2)) for l in range(nB+1,Nqb)])
                 
-                if bB != 3:
+                if bB%3 != 0:
                     for ind in indB:
                         dR[ind] -= 2*deltaT*GB*S[ind]
                     rtm2[3*nB+i-1] -= GB*S[3*nB+i-1]
