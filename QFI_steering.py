@@ -292,7 +292,6 @@ def trajec(Nqb, psi0, O, param, targQFI):
     #indList = [[0]*i+[a]+[0]*(Nqb-i-1) for i in range(Nqb) for a in range(1,4)]
     #indList.extend([[0]*j+[a]+[0]*(i-j-1)+[b]+[0]*(Nqb-i-1) for a in range(1,4) for b in range(1,4) for j in range(Nqb-1) for i in range(j+1,Nqb)])
     
-      
     #random number generator
     rng = np.random.default_rng()
     
@@ -319,22 +318,24 @@ def trajec(Nqb, psi0, O, param, targQFI):
     slist, aList, bList = coupl_list(K) 
     
     ##operator list
-    pauliPlaqList = np.zeros(int(3*Nqb+9/2*Nqb*(Nqb-1)), dtype=object)
+    #pauliPlaqList = np.zeros(int(3*Nqb+9/2*Nqb*(Nqb-1)), dtype=object)
     
     #Spsi = np.zeros(int(3*Nqb+9/2*Nqb*(Nqb-1)))
     #SO = np.zeros(int(3*Nqb+9/2*Nqb*(Nqb-1)))
     
     #compute initial values
-    for l,k in enumerate(indList):
-        pauliPlaqList[l] = plaqS([int(k/(4**j)%4) for j in range(Nqb)])
-        #pauliPlaqList[l] = plaqS(k)
-      #  Spsi[l] = qt.expect(plaqS([int(k/(4**j)%4) for j in range(Nqb)]),psi0)     #for Nqb>13 to save memory
-      #  SO[l] = qt.expect(plaqS([int(k/(4**j)%4) for j in range(Nqb)]),O)          #for Nqb>13 to save memory
+    #for l,k in enumerate(indList):
+    #    pauliPlaqList[l] = plaqS([int(k/(4**j)%4) for j in range(Nqb)])
+    #    #pauliPlaqList[l] = plaqS(k)
+    #    Spsi[l] = qt.expect(plaqS([int(k/(4**j)%4) for j in range(Nqb)]),psi0)     #for Nqb>13 to save memory
+    #    SO[l] = qt.expect(plaqS([int(k/(4**j)%4) for j in range(Nqb)]),O)          #for Nqb>13 to save memory
+    
+    pauliPlaqList = [plaqS([int(k/(4**j)%4) for j in range(Nqb)]) for k in indList]
+    #pauliPlaqList = [plaqS(k) for k in indList]
+    Spsi = np.array(qt.expect(pauliPlaqList,psi0))
+    SO = np.array(qt.expect(pauliPlaqList,O))
     #Spsi = np.array([qt.expect(plaqS(k),psi0) for k in indList])
     #SO= np.array([qt.expect(plaqS(k),O) for k in indList])
-    
-    Spsi = qt.expect(pauliPlaqList,psi0)
-    SO = qt.expect(pauliPlaqList,O)
     
     ##Initial QFI
     phList[0] = np.angle((state1).overlap(psi0)*psi0.overlap(state2))
@@ -419,9 +420,9 @@ def trajec(Nqb, psi0, O, param, targQFI):
                   
         ##Update values
         #for l, k in enumerate(indList):
-            #Spsi[l] = qt.expect(plaqS([int(k/(4**j)%4) for j in range(Nqb)]),psi)     #for Nqb>13 to save memory
-        #Spsi = np.array([qt.expect(plaqS(k),psi0) for k in indList])
-        Spsi = qt.expect(pauliPlaqList,psi)
+        #    Spsi[l] = qt.expect(plaqS([int(k/(4**j)%4) for j in range(Nqb)]),psi)     #for Nqb>13 to save memory
+        #Spsi = np.array([qt.expect(plaqS(k),psi) for k in indList])
+        Spsi = np.array(qt.expect(pauliPlaqList,psi))
         
         qfiTemp = (SO[:3*Nqb]@SO[:3*Nqb]+2*sum([np.sum(np.kron(SO[3*k:3*(k+1)],SO[3*j:3*(j+1)])*Spsi[int(3*Nqb+(2*Nqb-j-1)*j/2)+k-j-1::int(Nqb*(Nqb-1)/2)]) for j in range(Nqb-1) for k in range(j+1,Nqb)])-(SO[:3*Nqb]@Spsi[:3*Nqb])**2)/2**(2*(Nqb-1))       ##starting point for 2 corr: (Nqb-1)+(Nqb-2)+...+(Nqb-j)
         
@@ -509,7 +510,7 @@ def ent_swap_sol(psi, deltaT, c_op):
     rng = np.random.default_rng() 
     #probabilities
     P = np.zeros(4)
-    P[0:2] = qt.expect([c.dag()*c for c in c_op], psi)*deltaT
+    P[0:2] = np.array(qt.expect([c.dag()*c for c in c_op], psi))*deltaT
     P[2:4] = (1-2*P[0:2])/2
     #stochastic measurement outcome
     while 1==1:
