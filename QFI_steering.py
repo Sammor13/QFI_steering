@@ -318,24 +318,17 @@ def trajec(Nqb, psi0, O, param, targQFI):
     slist, aList, bList = coupl_list(K) 
     
     ##operator list
-    #pauliPlaqList = np.zeros(int(3*Nqb+9/2*Nqb*(Nqb-1)), dtype=object)
-    
-    #Spsi = np.zeros(int(3*Nqb+9/2*Nqb*(Nqb-1)))
-    #SO = np.zeros(int(3*Nqb+9/2*Nqb*(Nqb-1)))
-    
-    #compute initial values
-    #for l,k in enumerate(indList):
-    #    pauliPlaqList[l] = plaqS([int(k/(4**j)%4) for j in range(Nqb)])
-    #    #pauliPlaqList[l] = plaqS(k)
-    #    Spsi[l] = qt.expect(plaqS([int(k/(4**j)%4) for j in range(Nqb)]),psi0)     #for Nqb>13 to save memory
-    #    SO[l] = qt.expect(plaqS([int(k/(4**j)%4) for j in range(Nqb)]),O)          #for Nqb>13 to save memory
-    
     pauliPlaqList = [plaqS([int(k/(4**j)%4) for j in range(Nqb)]) for k in indList]
     #pauliPlaqList = [plaqS(k) for k in indList]
+    
+    #compute initial values
     Spsi = np.array(qt.expect(pauliPlaqList,psi0))
     SO = np.array(qt.expect(pauliPlaqList,O))
-    #Spsi = np.array([qt.expect(plaqS(k),psi0) for k in indList])
-    #SO= np.array([qt.expect(plaqS(k),O) for k in indList])
+    
+    #Spsi = np.array([qt.expect(plaqS([int(k/(4**j)%4) for j in range(Nqb)]),psi0) for k in indList])       #for Nqb>13 to save memory
+    #SO= np.array([qt.expect(plaqS([int(k/(4**j)%4) for j in range(Nqb)]),O) for k in indList])             #for Nqb>13 to save memory
+    #Spsi = np.array([qt.expect(plaqS(k),psi0) for k in indList])       #for Nqb>13 to save memory
+    #SO= np.array([qt.expect(plaqS(k),O) for k in indList])             #for Nqb>13 to save memory
     
     ##Initial QFI
     phList[0] = np.angle((state1).overlap(psi0)*psi0.overlap(state2))
@@ -399,10 +392,8 @@ def trajec(Nqb, psi0, O, param, targQFI):
             sig1 = pauliPlaqList[alpha1+3*n1-1]
             sig2 = pauliPlaqList[alpha2+3*n2-1]
             
-           # sig1 = plaqS([int(alpha1*4**(n1-j)%4) for j in range(Nqb)])     #for Nqb>13 to save memory
-           # sig2 = plaqS([int(alpha2*4**(n2-j)%4) for j in range(Nqb)])     #for Nqb>13 to save memory
-           # sig1 = plaqS([0]*n1+[alpha1]+[0]*(Nqb-n1-1))     #for Nqb>13 to save memory
-           # sig2 = plaqS([0]*n2+[alpha2]+[0]*(Nqb-n2-1))     #for Nqb>13 to save memory
+            #sig1 = plaqS([0]*n1+[alpha1]+[0]*(Nqb-n1-1))     #for Nqb>13 to save memory
+            #sig2 = plaqS([0]*n2+[alpha2]+[0]*(Nqb-n2-1))     #for Nqb>13 to save memory
             
             ##Time step
             #beta1=z or beta2=z or (beta1=x, beta2=y) or (beta1=y, beta2=x)
@@ -419,9 +410,8 @@ def trajec(Nqb, psi0, O, param, targQFI):
                 psi, xi_eta_List[i-1] = ent_swap_sol(psi, DeltaT, c_op)
                   
         ##Update values
-        #for l, k in enumerate(indList):
-        #    Spsi[l] = qt.expect(plaqS([int(k/(4**j)%4) for j in range(Nqb)]),psi)     #for Nqb>13 to save memory
-        #Spsi = np.array([qt.expect(plaqS(k),psi) for k in indList])
+        #Spsi = np.array([qt.expect(plaqS(k),psi) for k in indList])     #for Nqb>13 to save memory
+        #Spsi = np.array([qt.expect(plaqS([int(k/(4**j)%4) for j in range(Nqb)]),psi) for k in indList])       #for Nqb>13 to save memory
         Spsi = np.array(qt.expect(pauliPlaqList,psi))
         
         qfiTemp = (SO[:3*Nqb]@SO[:3*Nqb]+2*sum([np.sum(np.kron(SO[3*k:3*(k+1)],SO[3*j:3*(j+1)])*Spsi[int(3*Nqb+(2*Nqb-j-1)*j/2)+k-j-1::int(Nqb*(Nqb-1)/2)]) for j in range(Nqb-1) for k in range(j+1,Nqb)])-(SO[:3*Nqb]@Spsi[:3*Nqb])**2)/2**(2*(Nqb-1))       ##starting point for 2 corr: (Nqb-1)+(Nqb-2)+...+(Nqb-j)
@@ -431,7 +421,6 @@ def trajec(Nqb, psi0, O, param, targQFI):
                 psi_List[int(i/Nst)] = qt.ket2dm(psi)
             phList[int(i/Nst)] = np.angle((state1).overlap(psi)*psi.overlap(state2))
             
-            #qfi[int(i/Nst)] = (SO[:3*Nqb]@SO[:3*Nqb]+2*sum([np.sum(np.kron(SO[3*k:3*(k+1)],SO[3*j:3*(j+1)])*Spsi[int(3*Nqb+(2*Nqb-j-1)*j/2)+k-j-1::int(Nqb*(Nqb-1)/2)]) for j in range(Nqb-1) for k in range(j+1,Nqb)])-(SO[:3*Nqb]@Spsi[:3*Nqb])**2)/2**(2*(Nqb-1))       ##starting point for 2 corr: (Nqb-1)+(Nqb-2)+...+(Nqb-j)
             qfi[int(i/Nst)] = qfiTemp
             
             ##entanglement entropy for 2 qubits:
@@ -558,9 +547,6 @@ def unitsol(psi, deltaT, H, c_op, P):
 ###plaquette operators
 def plaqS(ind):
     return qt.tensor([s[i] for i in ind])
-    
-#def plaqSlist(Nqb):
-#    return  [plaqS([int(i/(4**j)%4) for j in range(Nqb)]) for i in range(4**Nqb)]
 
 ##sparse implementation QFI change
 def expQFIchgSparse(S, SO, J, Gamma, deltaT, nA, nB, Nqb, K):
@@ -676,6 +662,6 @@ def F_tensor(S, A, B, Nqb):
         
     return F
 
-##Multicore compatibility in windows
+##run main program
 if __name__ == '__main__':
     main()
