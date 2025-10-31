@@ -15,6 +15,12 @@ from matplotlib.ticker import (MultipleLocator)
 import random
 from sympy import LeviCivita
 
+import matplotlib as mpl  
+mpl.rcParams['text.usetex'] = True
+mpl.rcParams['font.family'] = 'serif' 
+
+plt.style.use('seaborn-v0_8-dark-palette')
+
 ##Pauli matrices
 s0 = qt.qeye(2)
 sx = qt.sigmax()
@@ -71,11 +77,11 @@ def main():
     results = qt.parallel_map(trajec, [Nqb]*M, task_kwargs=dict(psi0=psi0, O=O, param=params, targQFI=targQFI), progress_bar=True)#, num_cpus=2)
     result_array = np.array(results, dtype=object)
     if Nqb == 2:
-        k_List, xi_eta_List, psi_List, QFI, phList, S_List = result_array.T
+        k_List, xi_eta_List, qb_List, psi_List, QFI, phList, S_List = result_array.T
     elif Nqb < 5:
-        k_List, xi_eta_List, psi_List, QFI, phList = result_array.T
+        k_List, xi_eta_List, qb_List, psi_List, QFI, phList = result_array.T
     else:
-        k_List, xi_eta_List, QFI, phList = result_array.T    
+        k_List, xi_eta_List, qb_List, QFI, phList = result_array.T    
     
     ##rearrange Distributions by Metropolis temperatures
     QFIDistr = np.reshape(np.concatenate(QFI), (M, int(N/Nst)+1))
@@ -89,6 +95,7 @@ def main():
     ##save data to files
     np.savetxt('coupl_list', np.concatenate(k_List))
     np.savetxt('xi_eta_List', np.concatenate(xi_eta_List), fmt='%s')
+    np.savetxt('qb_List', np.concatenate(qb_List), fmt='%s')
     
 ############################################################Plots       
     ##phase ensemble at final time
@@ -149,7 +156,7 @@ def main():
     plt.xlim(left=0, right=Nqb**2)
     plt.minorticks_on()
     
-    plt.xlabel(r'$QFI final$', fontsize=25)
+    plt.xlabel(r'$F_Q(t\rightarrow\infty)$', fontsize=25)
     plt.ylabel(r'Number of trajectories', fontsize=25)
     plt.xticks(fontsize=20)
     plt.yticks(fontsize=20)
@@ -305,7 +312,8 @@ def trajec(Nqb, psi0, O, param, targQFI):
     k_List = np.zeros(N*int(Nqb/2))
     qfi = np.zeros(int(N/Nst)+1)
     phList = np.zeros(int(N/Nst)+1)
-    xi_eta_List = np.zeros(N, dtype=tuple)
+    xi_eta_List = np.zeros(N*int(Nqb/2), dtype=tuple)
+    qb_List = np.zeros(N*int(Nqb/2), dtype=tuple)
     if Nqb < 5:
         psi_List = np.zeros(int(N/Nst+1), dtype=object)
     
@@ -345,6 +353,8 @@ def trajec(Nqb, psi0, O, param, targQFI):
     psi = psi0
     for i in range(1, N+1):
         nStart1 = int(N*rng.random())
+        #nStart1 = (i-1)%Nqb
+        
         nStart2 = (nStart1+1)%Nqb
        
         #random.shuffle(qbList)                 ##needed for fully coupled chain
@@ -379,6 +389,7 @@ def trajec(Nqb, psi0, O, param, targQFI):
                 klis = rng.choice(np.argwhere(cost == np.nanmin(cost)))[0]  
             
             k_List[(i-1)*int(Nqb/2)+nPair] = klis
+            qb_List[(i-1)*int(Nqb/2)+nPair] = (n1, n2)
         
             ##chosen couplings
             s1 = slist[int(klis%K)]
@@ -402,12 +413,12 @@ def trajec(Nqb, psi0, O, param, targQFI):
                 H = (beta1%3==0)*s1*J1*sig1+(beta2%3==0)*s2*J2*sig2+(beta1%3!=0)*(beta2%3!=0)*eta*np.sqrt(G1*G2)*sig1*sig2
                 c_op = (beta1%3!=0)*np.sqrt(G1)*sig1+(1-2*(beta1==2))*eta*1j*(beta2%3!=0)*np.sqrt(G2)*sig2
                 psi, xi = unitsol(psi, DeltaT, H, c_op, ((beta1%3!=0)*G1+(beta2%3!=0)*G2)*DeltaT)
-                xi_eta_List[i-1] = (xi, eta)
+                xi_eta_List[(i-1)*int(Nqb/2)+nPair] = (xi, eta)
                 
             #beta1=beta2=x/y  
             elif beta1 == beta2:
                 c_op = [np.sqrt(G1/2)*sig1+np.sqrt(G2/2)*sig2, np.sqrt(G1/2)*sig1-np.sqrt(G2/2)*sig2]
-                psi, xi_eta_List[i-1] = ent_swap_sol(psi, DeltaT, c_op)
+                psi, xi_eta_List[(i-1)*int(Nqb/2)+nPair] = ent_swap_sol(psi, DeltaT, c_op)
                   
         ##Update values
         #Spsi = np.array([qt.expect(plaqS(k),psi) for k in indList])     #for Nqb>13 to save memory
@@ -428,11 +439,11 @@ def trajec(Nqb, psi0, O, param, targQFI):
                 S_list[int(i/Nst)] = qt.entropy_vn(psi.ptrace((0)))
     
     if Nqb == 2:
-        return k_List, xi_eta_List, psi_List, qfi, phList, S_list
+        return k_List, xi_eta_List, qb_List, psi_List, qfi, phList, S_list
     elif Nqb < 5:
-        return k_List, xi_eta_List, psi_List, qfi, phList
+        return k_List, xi_eta_List, qb_List, psi_List, qfi, phList
     else:
-        return k_List, xi_eta_List, qfi, phList
+        return k_List, xi_eta_List, qb_List, qfi, phList
 
 ##coupling list
 def coupl_list(K):
