@@ -210,7 +210,6 @@ def main():
         ##average state
         rhoFin = sum(psiDistr[:,-1])/M
         fig, ax = qt.hinton(rhoFin)
-        plt.show()
         
         plt.savefig('avg fin state.pdf', format='pdf')
         plt.savefig('avg fin state.svg', format='svg')
@@ -352,7 +351,7 @@ def trajec(Nqb, psi0, O, param, targQFI):
     ##Time step loop
     psi = psi0
     for i in range(1, N+1):
-        nStart1 = int(N*rng.random())
+        nStart1 = int(Nqb*rng.random())
         #nStart1 = (i-1)%Nqb
         
         nStart2 = (nStart1+1)%Nqb
